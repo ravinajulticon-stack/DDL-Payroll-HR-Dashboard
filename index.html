@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employee 201</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* macOS Ventura / Sonoma palette */
+  --bg:        #1c1c1e;
+  --surface-1: #2c2c2e;
+  --surface-2: #3a3a3c;
+  --surface-3: #48484a;
+  --border:    rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.14);
+  --text:      #f5f5f7;
+  --text-2:    #aeaeb2;
+  --text-3:    #6e6e73;
+  --blue:      #0a84ff;
+  --blue-light:#409cff;
+  --green:     #30d158;
+  --amber:     #ff9f0a;
+  --red:       #ff453a;
+  --purple:    #bf5af2;
+  --teal:      #5ac8fa;
+  --radius-sm: 8px;
+  --radius:    12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --blur:      blur(20px);
+  --shadow:    0 4px 24px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.6);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* ── TITLEBAR ── */
+.titlebar {
+  height: 52px;
+  background: rgba(28,28,30,0.85);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.traffic-lights { display: flex; gap: 8px; flex-shrink: 0; }
+.tl { width: 12px; height: 12px; border-radius: 50%; }
+.tl-red   { background: #ff5f57; }
+.tl-amber { background: #febc2e; }
+.tl-green { background: #28c840; }
+.titlebar-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.titlebar-title { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: -0.2px; }
+.titlebar-sub   { font-size: 12px; color: var(--text-3); }
+
+/* ── TOOLBAR ── */
+.toolbar {
+  background: rgba(44,44,46,0.7);
+  backdrop-filter: var(--blur);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* macOS segmented control */
+.seg-ctrl {
+  display: flex;
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 1px;
+}
+.seg-btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.seg-btn.active {
+  background: var(--surface-3);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+.seg-btn:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.05); }
+
+/* retailer pills */
+.pill-group { display: flex; gap: 5px; flex-wrap: wrap; }
+.pill {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  min-width: 120px;
+  text-align: center;
+}
+.pill:hover { border-color: var(--blue); color: var(--text); }
+.pill.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+.toolbar-sep { width: 1px; height: 22px; background: var(--border-strong); flex-shrink: 0; }
+
+/* week range */
+.wk-range { display: flex; align-items: center; gap: 6px; }
+.wk-label { font-size: 11px; color: var(--text-3); font-weight: 500; }
+.qtr-btn { padding: 3px 10px; border-radius: 6px; border: 0.5px solid var(--border); background: var(--surface-2); color: var(--text-2); font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+.qtr-btn:hover { background: var(--surface-3); color: var(--text); }
+.qtr-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+.wk-sel {
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  padding-right: 20px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236e6e73'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+}
+
+/* ── MAIN LAYOUT ── */
+.main { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: visible;
+}
+.card-header {
+  padding: 14px 18px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.card-title { font-size: 12px; font-weight: 600; color: var(--text-2); letter-spacing: 0.3px; text-transform: uppercase; }
+.card-body  { padding: 14px 18px 18px; }
+
+/* ── KPI STRIP ── */
+.kpi-strip { display: grid; grid-template-columns: repeat(7,1fr); gap: 1px; background: var(--border); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); }
+.kpi-item  { background: var(--surface-1); padding: 16px 18px; }
+.kpi-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-3); margin-bottom: 6px; }
+.kpi-val   { font-size: 26px; font-weight: 700; letter-spacing: -1px; line-height: 1; color: var(--text); }
+.kpi-val.blue   { color: var(--blue); }
+.kpi-val.green  { color: var(--green); }
+.kpi-val.amber  { color: var(--amber); }
+.kpi-sub   { font-size: 10px; color: var(--text-3); margin-top: 5px; }
+@media(max-width:1100px){ .kpi-strip { grid-template-columns: repeat(4,1fr); } }
+@media(max-width:700px){ .kpi-strip { grid-template-columns: repeat(2,1fr); } }
+
+/* ── TWO COL ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media(max-width:900px){ .two-col { grid-template-columns: 1fr; } }
+.chart-wrap      { position: relative; height: 200px; }
+.chart-wrap-tall { position: relative; height: 260px; }
+
+/* ── SHARE BARS ── */
+.share-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.share-row:last-child { border-bottom: none; }
+.share-name { font-size: 12px; font-weight: 500; color: var(--text); width: 115px; flex-shrink: 0; }
+.share-track { flex: 1; height: 5px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.share-fill  { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+.share-num   { font-size: 12px; font-weight: 600; width: 48px; text-align: right; flex-shrink: 0; }
+
+/* ── SECTION PILLS ── */
+.filter-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.fp {
+  padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;
+  border: 1px solid var(--border-strong); background: transparent; color: var(--text-3);
+  cursor: pointer; transition: all 0.12s; font-family: inherit;
+}
+.fp.active, .fp:hover { border-color: var(--blue); color: var(--blue-light); background: rgba(10,132,255,0.1); }
+
+/* ── PRODUCT TABLE ── */
+.ptable { width: 100%; border-collapse: collapse; }
+.ptable th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-3); font-weight: 600; padding: 0 8px 8px 0; border-bottom: 1px solid var(--border); text-align: left; }
+.ptable th:last-child { text-align: right; }
+.ptable td { padding: 8px 8px 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; vertical-align: middle; }
+.ptable tr:last-child td { border-bottom: none; }
+.ptable tr:hover td { background: rgba(255,255,255,0.03); }
+.pname { font-weight: 500; color: var(--text); font-size: 11px; }
+.pbar-wrap { width: 64px; height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; display: inline-block; vertical-align: middle; }
+.pbar-fill { height: 100%; border-radius: 2px; }
+.pnum { text-align: right; font-weight: 600; font-size: 13px; }
+
+/* ── CAT LEGEND ── */
+.cat-leg-item { display: flex; align-items: center; gap: 8px; font-size: 11px; padding: 3px 0; }
+.cat-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+/* ── SPARKLINES ── */
+.spark-grid { display: flex; flex-direction: row; flex-wrap: nowrap; gap: 8px; width: 100%; }
+.spark-card { background: var(--surface-2); border-radius: var(--radius); padding: 8px 10px; border: 1px solid var(--border); flex: 1 1 0%; min-width: 0; overflow: hidden; box-sizing: border-box; }
+.spark-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.spark-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spark-total { font-size: 10px; color: var(--text-3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spark-peak { text-align: right; flex-shrink: 0; min-width: 0; }
+.spark-peak-val { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.spark-peak-wk  { font-size: 9px; color: var(--text-3); white-space: nowrap; }
+.spark-canvas { position: relative; height: 48px; width: 100%; }
+
+/* ── DETAIL VIEW ── */
+#detailView { display: none; }
+
+.detail-top {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.detail-retailer { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); }
+.detail-badge {
+  background: var(--blue);
+  border-radius: 10px;
+  padding: 6px 16px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.5px;
+}
+
+/* section block */
+.sec-block {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;  /* keeps rounded corners */
+  min-width: 0;      /* allows flex/grid children to shrink */
+}
+.sec-hd {
+  background: rgba(28,28,30,0.6);
+  backdrop-filter: var(--blur);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+}
+.sec-hd-name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  outline: none;
+  border-bottom: 1px dashed transparent;
+  transition: border-color 0.15s;
+  padding-bottom: 1px;
+}
+.sec-hd-name:focus { border-bottom-color: var(--blue); }
+.sec-hd-right { display: flex; align-items: center; gap: 8px; }
+.sec-total { font-size: 14px; font-weight: 700; }
+.tbl-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) var(--surface-2);
+  width: 100%;
+  max-width: 100%;
+  display: block;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+}
+.tbl-scroll::-webkit-scrollbar { height: 7px; }
+.tbl-scroll::-webkit-scrollbar-track { background: var(--surface-2); border-radius: 4px; }
+.tbl-scroll::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 4px; } .tbl-scroll::-webkit-scrollbar-thumb:hover { background: var(--blue); }
+
+.tbl-scroll-wrap { display: flex; align-items: stretch; gap: 6px; width: 100%; }
+.tbl-scroll-wrap .tbl-scroll { flex: 1 1 auto; min-width: 0; }
+.tbl-scroll-arrow {
+  flex: 0 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-3);
+  border-radius: 6px;
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  user-select: none;
+  transition: background 0.15s, color 0.15s;
+}
+.tbl-scroll-arrow:hover { background: var(--blue); color: #fff; }
+.tbl-scroll-arrow:active { transform: scale(0.96); }
+
+/* saleout table */
+.so-table {
+  width: max-content;
+  min-width: max-content;
+  border-collapse: collapse;
+  font-size: 11px;
+  white-space: nowrap;
+  table-layout: fixed;
+}
+.so-table thead th {
+  background: rgba(28,28,30,0.8);
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 8px 10px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.so-table thead th.col-name {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: rgba(28,28,30,0.95);
+  min-width: 200px;
+  max-width: 200px;
+  width: 200px;
+}
+.so-table thead th.col-total { color: var(--blue-light); }
+.so-table thead th.col-type { min-width: 100px; width: 100px; color: var(--text-2); }
+.so-table td.col-type { min-width: 100px; width: 100px; color: var(--text-2); font-size: 11px; }
+.so-table thead th.col-num { min-width: 36px; width: 36px; color: var(--text-3); text-align: center; }
+.so-table td.col-num { min-width: 36px; width: 36px; color: var(--text-3); font-size: 11px; text-align: center; }
+.so-table thead th.col-del { min-width: 36px; border-right: none; }
+
+.so-table tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  text-align: center;
+  color: var(--text);
+  transition: background 0.1s;
+}
+.so-table tbody td.col-name {
+  text-align: left;
+  font-weight: 500;
+  background: var(--surface-1);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  white-space: normal;
+  word-break: break-word;
+  min-width: 200px;
+  max-width: 200px;
+  width: 200px;
+}
+.so-table tbody td.col-total { font-weight: 700; color: var(--blue-light); background: rgba(10,132,255,0.06); position: sticky; left: 200px; z-index: 1; }
+.so-table thead th.col-total { position: sticky; left: 200px; z-index: 3; background: rgba(28,28,30,0.95); }
+.so-table tbody tr:hover td { background: rgba(255,255,255,0.04) !important; }
+.so-table tbody tr:hover td.col-name { background: rgba(255,255,255,0.06) !important; }
+
+.cell-zero { color: var(--surface-3); }
+.cell-neg  { color: var(--red); font-weight: 600; }
+.cell-pos  { color: var(--text-2); }
+.cell-med  { background: rgba(48,209,88,0.08) !important; color: #30d158 !important; }
+.cell-high { background: rgba(48,209,88,0.18) !important; color: #4ddb72 !important; font-weight: 700; }
+
+.so-table tbody tr.wk-total-row td {
+  background: rgba(10,132,255,0.06) !important;
+  font-weight: 700;
+  color: var(--teal) !important;
+  border-top: 1px solid var(--border-strong);
+  font-size: 11px;
+}
+.so-table tbody tr.wk-total-row td.col-name {
+  background: rgba(10,132,255,0.08) !important;
+  color: var(--teal) !important;
+  font-style: italic;
+}
+.so-table tbody td[contenteditable] { cursor: text; }
+.so-table tbody td[contenteditable]:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--blue);
+  background: rgba(10,132,255,0.12) !important;
+  color: var(--text) !important;
+}
+.name-editable {
+  outline: none;
+  border-bottom: 1px dashed transparent;
+  transition: border-color 0.15s;
+  display: inline;
+  padding-bottom: 1px;
+}
+.name-editable:focus { border-bottom-color: var(--blue); }
+
+/* micro bar in name cell */
+.nano-bar { display: block; height: 2px; background: var(--surface-3); border-radius: 1px; overflow: hidden; margin-top: 4px; max-width: 100px; }
+.nano-fill { height: 100%; border-radius: 1px; }
+
+/* ic buttons */
+.ic-btn {
+  border: none; border-radius: 6px; cursor: pointer;
+  font-size: 11px; font-weight: 600; font-family: inherit;
+  padding: 4px 10px; transition: all 0.15s; line-height: 1.4;
+}
+.btn-add { background: rgba(10,132,255,0.15); color: var(--blue-light); }
+.btn-add:hover { background: var(--blue); color: #fff; }
+.btn-del { background: transparent; color: var(--text-3); padding: 3px 7px; font-size: 12px; }
+.btn-del:hover { background: rgba(255,69,58,0.15); color: var(--red); }
+.btn-del-row { background: transparent; color: var(--surface-3); border: none; padding: 2px 6px; font-size: 12px; cursor: pointer; border-radius: 4px; }
+.btn-del-row:hover { background: rgba(255,69,58,0.12); color: var(--red); }
+
+.sec-add-bar { padding: 8px 14px; border-top: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+.bottom-bar  { margin-top: 4px; display: flex; gap: 10px; }
+
+/* retailer heading in All view */
+.ret-heading {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-top: 8px;
+  gap: 10px;
+}
+.ret-heading-name { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+.ret-heading-right { display: flex; align-items: center; gap: 10px; }
+.ret-total-badge { border-radius: 8px; padding: 4px 14px; font-size: 14px; font-weight: 700; color: #fff; }
+
+/* scrollable product table */
+.prod-scroll { overflow-y: auto; max-height: 320px; }
+.prod-scroll::-webkit-scrollbar { width: 4px; }
+.prod-scroll::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 2px; }
+
+
+/* ── Employee 201 additions ── */
+.io-btn{ border:1px solid var(--border-strong); border-radius:6px; background:var(--surface-1); color:var(--text-2); font-size:11.5px; font-weight:600; padding:5px 12px; cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap; }
+.io-btn:hover{ border-color:var(--blue); color:#fff; background:var(--blue); }
+.io-btn.primary{ background:var(--blue); color:#fff; border-color:var(--blue); }
+.search-box{ background:var(--surface-2); border:1px solid var(--border-strong); color:var(--text); padding:6px 10px; border-radius:7px; font-size:12.5px; font-family:inherit; min-width:220px; }
+.search-box:focus{ outline:none; border-color:var(--blue); }
+.rec-table{ border-collapse:collapse; font-size:12px; width:max-content; min-width:100%; }
+.rec-table thead th{
+  position:sticky; top:0; z-index:2;
+  background:#2c2c2e; color:var(--text-3); text-transform:uppercase; letter-spacing:0.4px;
+  font-size:10px; font-weight:600; padding:9px 10px; text-align:left; white-space:nowrap;
+  border-bottom:1px solid var(--border-strong);
+}
+.rec-table thead th:first-child{ position:sticky; left:0; top:0; z-index:3; }
+.rec-table tbody td{ padding:6px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }
+.rec-table tbody td:first-child{ position:sticky; left:0; background:var(--surface-1); z-index:1; font-weight:600; color:var(--text); }
+.rec-table tbody tr:hover td:first-child{ background:#323234; }
+.rec-table tbody tr:hover td{ background:rgba(255,255,255,0.02); }
+.rec-table input, .rec-table select{
+  background:var(--surface-2); border:1px solid transparent; color:var(--text);
+  padding:5px 7px; border-radius:6px; font-size:11.5px; font-family:inherit; min-width:120px;
+}
+.rec-table input:hover, .rec-table select:hover{ border-color:var(--border-strong); }
+.rec-table input:focus, .rec-table select:focus{ outline:none; border-color:var(--blue); background:#1c1c1e; }
+.rec-table select{ min-width:110px; }
+.status-pill{ font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px; display:inline-block; }
+.status-pill.active{ background:rgba(48,209,88,0.15); color:#30d158; }
+.status-pill.resigned{ background:rgba(255,159,10,0.15); color:#ff9f0a; }
+.status-pill.terminated{ background:rgba(255,69,58,0.15); color:#ff453a; }
+.del-btn{ background:none; border:none; color:var(--text-3); cursor:pointer; font-size:13px; padding:4px 8px; border-radius:5px; }
+.del-btn:hover{ color:#ff453a; background:rgba(255,69,58,0.1); }
+.rec-count{ font-size:11.5px; color:var(--text-3); }
+
+/* ── login gate ── */
+#loginScreen{
+  position:fixed; inset:0; background:var(--bg,#1c1c1e); display:flex; align-items:center; justify-content:center; z-index:100;
+}
+.login-card{ background:var(--surface-1); border:1px solid var(--border); border-radius:14px; padding:36px 34px; width:340px; text-align:center; }
+.login-card .lock-icon{ font-size:30px; margin-bottom:10px; }
+.login-card h2{ font-size:16px; margin:0 0 6px; color:var(--text); }
+.login-card p{ font-size:12.5px; color:var(--text-3); margin:0 0 20px; line-height:1.5; }
+.login-card input{ width:100%; background:var(--surface-2); border:1px solid var(--border-strong); color:var(--text); padding:9px 12px; border-radius:8px; font-size:13px; font-family:inherit; margin-bottom:12px; box-sizing:border-box; }
+.login-card input:focus{ outline:none; border-color:var(--blue); }
+.login-card button{ width:100%; background:var(--blue); color:#fff; border:none; padding:9px 12px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
+.login-card button:disabled{ opacity:0.5; cursor:default; }
+.login-status{ font-size:11.5px; margin-top:14px; min-height:16px; }
+.login-status.ok{ color:#30d158; }
+.login-status.err{ color:#ff453a; }
+#appRoot{ display:none; }
+.signout-btn{ background:none; border:1px solid var(--border-strong); color:var(--text-3); font-size:11px; padding:5px 10px; border-radius:6px; cursor:pointer; font-family:inherit; }
+.signout-btn:hover{ border-color:#ff453a; color:#ff453a; }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="lock-icon">🔒</div>
+    <h2>Employee 201</h2>
+    <p>Sign in with your authorized email to view employee records. You'll get a one-time link by email — no password needed.</p>
+    <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email">
+    <button id="loginBtn" onclick="sendMagicLink()">Send Login Link</button>
+    <div class="login-status" id="loginStatus"></div>
+  </div>
+</div>
+
+<div id="appRoot">
+
+<!-- TITLEBAR -->
+<div class="titlebar">
+  <div class="traffic-lights">
+    <div class="tl tl-red"></div>
+    <div class="tl tl-amber"></div>
+    <div class="tl tl-green"></div>
+  </div>
+  <div class="titlebar-center">
+    <span class="titlebar-title">Employee 201</span>
+    <span class="titlebar-sub">— Digital Door Locks Pty Limited</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="rec-count" id="userEmailLabel"></span>
+    <button class="signout-btn" onclick="signOut()">Sign out</button>
+  </div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <input type="text" class="search-box" id="searchBox" placeholder="Search employees…">
+  <div class="toolbar-sep"></div>
+  <span class="rec-count" id="recCount"></span>
+  <div style="margin-left:auto">
+    <button class="io-btn primary" onclick="addEmployee()">+ Add Employee</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="card">
+    <div class="card-body" style="padding:0">
+      <div class="tbl-scroll" style="max-height:calc(100vh - 170px)">
+        <table class="rec-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Employee ID</th>
+              <th>Position / Role</th>
+              <th>Department</th>
+              <th>Employment Type</th>
+              <th>Status</th>
+              <th>Date Hired</th>
+              <th>SSS No.</th>
+              <th>PhilHealth No.</th>
+              <th>Pag-IBIG No.</th>
+              <th>TIN</th>
+              <th>Contact Number</th>
+              <th>Emergency Contact</th>
+              <th>Emergency Number</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="empBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script id="seed-data" type="application/json">[{"name": "Gina Sajorda", "status": "Resigned"}, {"name": "Mary Grace Feliciano", "status": "Resigned"}, {"name": "Alyza Bongcales", "status": "Active"}, {"name": "Recelyn Maralit", "status": "Active"}, {"name": "Misha Simanca", "status": "Active"}, {"name": "Marielle Paredes", "status": "Resigned"}, {"name": "Marjurey Calumpiano", "status": "Terminated"}, {"name": "Jerald Ravina", "status": "Active"}, {"name": "Avegail Jaen", "status": "Active"}, {"name": "Gino Claveria", "status": "Active"}, {"name": "Marian Mae Bozales", "status": "Active"}]</script>
+<script>
+const SUPABASE_URL = 'https://krehcrqqcykynqkqabfb.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_9rrHEKoA7o9RAnp4G66m3w_3nhRfeEc';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const SEED = JSON.parse(document.getElementById('seed-data').textContent);
+let EMP201 = [];
+let searchTerm = '';
+
+const STATUS_OPTIONS = ['Active', 'Resigned', 'Terminated'];
+const TYPE_OPTIONS = ['Regular', 'Probationary', 'Contractual'];
+
+/* ══════════════════════════════════════
+   AUTH GATE
+══════════════════════════════════════ */
+function setLoginStatus(msg, cls){
+  const el = document.getElementById('loginStatus');
+  el.textContent = msg;
+  el.className = 'login-status' + (cls ? ' ' + cls : '');
+}
+
+async function sendMagicLink(){
+  const email = document.getElementById('loginEmail').value.trim();
+  if(!email){ setLoginStatus('Enter your email first.', 'err'); return; }
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  setLoginStatus('Sending…');
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false }
+  });
+  btn.disabled = false;
+  if(error){
+    setLoginStatus('Could not send link: ' + error.message, 'err');
+  } else {
+    setLoginStatus('Check your email for the login link.', 'ok');
+  }
+}
+
+function signOut(){
+  sb.auth.signOut().then(() => location.reload());
+}
+
+async function showApp(session){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appRoot').style.display = 'block';
+  document.getElementById('userEmailLabel').textContent = session.user.email;
+  await ensureSeeded();
+  await loadEmployees();
+}
+
+function showLogin(){
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('appRoot').style.display = 'none';
+}
+
+sb.auth.onAuthStateChange((event, session) => {
+  if(session){ showApp(session); } else { showLogin(); }
+});
+
+sb.auth.getSession().then(({ data: { session } }) => {
+  if(session){ showApp(session); } else { showLogin(); }
+});
+
+/* ══════════════════════════════════════
+   DATA (Supabase-backed)
+══════════════════════════════════════ */
+
+// One-time seed from the payroll workbook's employee names, only if the table is empty.
+async function ensureSeeded(){
+  const { count, error } = await sb.from('employees_201').select('*', { count: 'exact', head: true });
+  if(error){ console.error('seed check failed', error); return; }
+  if(count === 0){
+    const rows = SEED.map(s => ({
+      name: s.name, status: s.status, employment_type: 'Regular'
+    }));
+    const { error: insertErr } = await sb.from('employees_201').insert(rows);
+    if(insertErr) console.error('seed insert failed', insertErr);
+  }
+}
+
+async function loadEmployees(){
+  const { data, error } = await sb.from('employees_201').select('*').order('name');
+  if(error){ alert('Could not load employees: ' + error.message); return; }
+  EMP201 = data;
+  render();
+}
+
+function field(rec, key, placeholder='', type='text'){
+  const val = (rec[key] || '').toString().replace(/"/g,'&quot;');
+  return `<input type="${type}" value="${val}" placeholder="${placeholder}" onchange="updateField('${rec.id}','${key}',this.value)">`;
+}
+
+async function updateField(id, key, val){
+  const rec = EMP201.find(r => r.id === id);
+  if(!rec) return;
+  rec[key] = val;
+  const { error } = await sb.from('employees_201').update({ [key]: val || null }).eq('id', id);
+  if(error){ alert('Could not save change: ' + error.message); return; }
+  if(key === 'status' || key === 'name') render();
+}
+
+function statusPillOrSelect(rec){
+  return `<select onchange="updateField('${rec.id}','status',this.value)">
+    ${STATUS_OPTIONS.map(s => `<option ${rec.status===s?'selected':''}>${s}</option>`).join('')}
+  </select>`;
+}
+function typeSelect(rec){
+  return `<select onchange="updateField('${rec.id}','employment_type',this.value)">
+    ${TYPE_OPTIONS.map(t => `<option ${rec.employment_type===t?'selected':''}>${t}</option>`).join('')}
+  </select>`;
+}
+
+async function addEmployee(){
+  const name = prompt('Employee name:');
+  if(!name) return;
+  const { data, error } = await sb.from('employees_201')
+    .insert({ name, status: 'Active', employment_type: 'Regular' })
+    .select()
+    .single();
+  if(error){ alert('Could not add employee: ' + error.message); return; }
+  EMP201.push(data);
+  render();
+}
+
+async function deleteEmployee(id){
+  const rec = EMP201.find(r => r.id === id);
+  if(!rec) return;
+  if(!confirm(`Remove ${rec.name} from Employee 201?`)) return;
+  const { error } = await sb.from('employees_201').delete().eq('id', id);
+  if(error){ alert('Could not remove employee: ' + error.message); return; }
+  EMP201 = EMP201.filter(r => r.id !== id);
+  render();
+}
+
+document.getElementById('searchBox').addEventListener('input', (e) => {
+  searchTerm = e.target.value.trim().toLowerCase();
+  render();
+});
+
+function render(){
+  const rows = EMP201
+    .filter(r => !searchTerm || r.name.toLowerCase().includes(searchTerm))
+    .sort((a,b) => a.name.localeCompare(b.name));
+
+  document.getElementById('recCount').textContent = `${rows.length} of ${EMP201.length} employee${EMP201.length!==1?'s':''}`;
+
+  const tbody = document.getElementById('empBody');
+  if(rows.length === 0){
+    tbody.innerHTML = `<tr><td colspan="15" style="text-align:center;color:var(--text-3);padding:24px">No employees match "${searchTerm}".</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(rec => `
+    <tr>
+      <td>${field(rec,'name')}</td>
+      <td>${field(rec,'employee_id','DDL-000')}</td>
+      <td>${field(rec,'role','Role')}</td>
+      <td>${field(rec,'department','Department')}</td>
+      <td>${typeSelect(rec)}</td>
+      <td>${statusPillOrSelect(rec)}</td>
+      <td>${field(rec,'date_hired','','date')}</td>
+      <td>${field(rec,'sss','SSS No.')}</td>
+      <td>${field(rec,'philhealth','PhilHealth No.')}</td>
+      <td>${field(rec,'pagibig','Pag-IBIG No.')}</td>
+      <td>${field(rec,'tin','TIN')}</td>
+      <td>${field(rec,'contact','Contact No.')}</td>
+      <td>${field(rec,'emergency_contact','Name')}</td>
+      <td>${field(rec,'emergency_number','Number')}</td>
+      <td><button class="del-btn" title="Remove" onclick="deleteEmployee('${rec.id}')">✕</button></td>
+    </tr>
+  `).join('');
+}
+
+</script>
+</body>
+</html>
