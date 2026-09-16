@@ -510,6 +510,7 @@ body {
 .del-btn{ background:none; border:none; color:var(--text-3); cursor:pointer; font-size:13px; padding:4px 8px; border-radius:5px; }
 .del-btn:hover{ color:#ff453a; background:rgba(255,69,58,0.1); }
 .rec-count{ font-size:11.5px; color:var(--text-3); }
+.seg-ctrl .seg-btn{ min-width:170px; text-align:center; }
 </style>
 </head>
 <body>
@@ -533,7 +534,8 @@ body {
 <div class="toolbar">
   <div class="seg-ctrl">
     <button class="seg-btn active" onclick="switchView('overview',this)">Overview</button>
-    <button class="seg-btn" onclick="switchView('detail',this)">Detail Table</button>
+    <button class="seg-btn" onclick="switchView('detail',this)">Employee 201</button>
+    <button class="seg-btn" onclick="switchView('pay',this)">Employee - Pay Details</button>
   </div>
   <div class="toolbar-sep"></div>
   <input type="text" class="search-box" id="searchBox" placeholder="Search employees…" style="display:none">
@@ -551,7 +553,7 @@ body {
     <div class="kpi-strip" id="kpiStrip"></div>
   </div>
 
-  <!-- DETAIL TABLE -->
+  <!-- EMPLOYEE 201 (DETAIL TABLE) -->
   <div id="detailView" style="display:none">
     <div class="card">
       <div class="card-body" style="padding:0">
@@ -578,11 +580,35 @@ body {
     </div>
   </div>
 
-</div>
+  <!-- EMPLOYEE - PAY DETAILS -->
+  <div id="payView" style="display:none">
+    <div class="card">
+      <div class="card-body" style="padding:0">
+        <div class="tbl-scroll" style="max-height:calc(100vh - 170px)">
+          <table class="rec-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Position / Role</th>
+                <th>Department</th>
+                <th>Status</th>
+                <th>Basic Pay Rate</th>
+                <th>Latest Total Payout</th>
+                <th>Latest Pay Date</th>
+              </tr>
+            </thead>
+            <tbody id="payBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
 
 </div>
 
-<script id="seed-data" type="application/json">[{"name": "Gina Sajorda", "status": "Resigned"}, {"name": "Mary Grace Feliciano", "status": "Resigned"}, {"name": "Alyza Bongcales", "status": "Active"}, {"name": "Recelyn Maralit", "status": "Active"}, {"name": "Misha Simanca", "status": "Active"}, {"name": "Marielle Paredes", "status": "Resigned"}, {"name": "Marjurey Calumpiano", "status": "Terminated"}, {"name": "Jerald Ravina", "status": "Active"}, {"name": "Avegail Jaen", "status": "Active"}, {"name": "Gino Claveria", "status": "Active"}, {"name": "Marian Mae Bozales", "status": "Active"}]</script>
+</div>
+
+<script id="seed-data" type="application/json">[{"name": "Matthew Magnaye", "status": "Resigned"}, {"name": "Kenneth Peralta", "status": "Resigned"}, {"name": "Gina Sajorda", "status": "Active"}, {"name": "Jenica Hipolita-Pua", "status": "Resigned"}, {"name": "Mary Grace Feliciano", "status": "Resigned"}, {"name": "Marianne Panis", "status": "Active"}, {"name": "Romae Marquez", "status": "Resigned"}, {"name": "Alyza Bongcales", "status": "Active"}, {"name": "Recelyn Maralit", "status": "Active"}, {"name": "Misha Simanca", "status": "Active"}, {"name": "Emman Casticimo", "status": "Resigned"}, {"name": "Julie Llaneta", "status": "Resigned"}, {"name": "Rey Ann Gerona", "status": "Resigned"}, {"name": "Jerald Ravina", "status": "Active"}, {"name": "Marielle Paredes", "status": "Resigned"}, {"name": "Gino Claveria", "status": "Active"}, {"name": "Marian Mae Bozales", "status": "Active"}, {"name": "Avegail Jaen", "status": "Active"}, {"name": "Marjurey Calumpiano", "status": "Resigned"}, {"name": "April Gallo", "status": "Active"}]</script>
 <script>
 const SUPABASE_URL = 'https://krehcrqqcykynqkqabfb.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_9rrHEKoA7o9RAnp4G66m3w_3nhRfeEc';
@@ -603,10 +629,12 @@ function switchView(view, btn){
   btn.classList.add('active');
   document.getElementById('overviewView').style.display = view === 'overview' ? 'block' : 'none';
   document.getElementById('detailView').style.display = view === 'detail' ? 'block' : 'none';
+  document.getElementById('payView').style.display = view === 'pay' ? 'block' : 'none';
   document.getElementById('searchBox').style.display = view === 'detail' ? 'inline-block' : 'none';
   document.getElementById('recCount').style.display = view === 'detail' ? 'inline' : 'none';
   document.getElementById('addEmpBtn').style.display = view === 'detail' ? 'inline-block' : 'none';
   if(view === 'overview') renderKpis();
+  if(view === 'pay') renderPayTable();
 }
 
 function renderKpis(){
@@ -689,6 +717,26 @@ function insuranceSelect(rec){
   return `<select onchange="updateField('${rec.id}','insurance_frequency',this.value)">
     ${opts.map(o => `<option value="${o}" ${rec.insurance_frequency===o?'selected':''}>${labels[o]}</option>`).join('')}
   </select>`;
+}
+
+function renderPayTable(){
+  const rows = EMP201.slice().sort((a,b) => a.name.localeCompare(b.name));
+  const tbody = document.getElementById('payBody');
+  if(rows.length === 0){
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:24px">No employees on file.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(rec => `
+    <tr>
+      <td style="font-weight:600;color:var(--text)">${rec.name}</td>
+      <td>${rec.role || '—'}</td>
+      <td>${rec.department || '—'}</td>
+      <td><span class="status-pill ${(rec.status||'').toLowerCase()}">${rec.status||'—'}</span></td>
+      <td>${field(rec,'basic_pay_rate','Rate','number')}</td>
+      <td>${field(rec,'latest_total_payout','Total Payout','number')}</td>
+      <td>${field(rec,'latest_pay_date','','date')}</td>
+    </tr>
+  `).join('');
 }
 
 function statusPillOrSelect(rec){
