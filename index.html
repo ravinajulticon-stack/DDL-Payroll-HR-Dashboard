@@ -510,41 +510,9 @@ body {
 .del-btn{ background:none; border:none; color:var(--text-3); cursor:pointer; font-size:13px; padding:4px 8px; border-radius:5px; }
 .del-btn:hover{ color:#ff453a; background:rgba(255,69,58,0.1); }
 .rec-count{ font-size:11.5px; color:var(--text-3); }
-
-/* ── login gate ── */
-#loginScreen{
-  position:fixed; inset:0; background:var(--bg,#1c1c1e); display:flex; align-items:center; justify-content:center; z-index:100;
-}
-.login-card{ background:var(--surface-1); border:1px solid var(--border); border-radius:14px; padding:36px 34px; width:340px; text-align:center; }
-.login-card .lock-icon{ font-size:30px; margin-bottom:10px; }
-.login-card h2{ font-size:16px; margin:0 0 6px; color:var(--text); }
-.login-card p{ font-size:12.5px; color:var(--text-3); margin:0 0 20px; line-height:1.5; }
-.login-card input{ width:100%; background:var(--surface-2); border:1px solid var(--border-strong); color:var(--text); padding:9px 12px; border-radius:8px; font-size:13px; font-family:inherit; margin-bottom:12px; box-sizing:border-box; }
-.login-card input:focus{ outline:none; border-color:var(--blue); }
-.login-card button{ width:100%; background:var(--blue); color:#fff; border:none; padding:9px 12px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
-.login-card button:disabled{ opacity:0.5; cursor:default; }
-.login-status{ font-size:11.5px; margin-top:14px; min-height:16px; }
-.login-status.ok{ color:#30d158; }
-.login-status.err{ color:#ff453a; }
-#appRoot{ display:none; }
-.signout-btn{ background:none; border:1px solid var(--border-strong); color:var(--text-3); font-size:11px; padding:5px 10px; border-radius:6px; cursor:pointer; font-family:inherit; }
-.signout-btn:hover{ border-color:#ff453a; color:#ff453a; }
 </style>
 </head>
 <body>
-
-<div id="loginScreen">
-  <div class="login-card">
-    <div class="lock-icon">🔒</div>
-    <h2>Employee 201</h2>
-    <p>Sign in with your authorized email to view employee records. We'll send you a 6-digit code — no password needed.</p>
-    <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email">
-    <button id="loginBtn" onclick="sendMagicLink()">Send Code</button>
-    <input type="text" id="loginCode" placeholder="Enter 6-digit code" inputmode="numeric" style="display:none">
-    <button id="verifyBtn" onclick="verifyCode()" style="display:none">Verify Code</button>
-    <div class="login-status" id="loginStatus"></div>
-  </div>
-</div>
 
 <div id="appRoot">
 
@@ -558,10 +526,6 @@ body {
   <div class="titlebar-center">
     <span class="titlebar-title">Employee 201</span>
     <span class="titlebar-sub">— Digital Door Locks Pty Limited</span>
-  </div>
-  <div style="display:flex;align-items:center;gap:8px">
-    <span class="rec-count" id="userEmailLabel"></span>
-    <button class="signout-btn" onclick="signOut()">Sign out</button>
   </div>
 </div>
 
@@ -623,78 +587,7 @@ const STATUS_OPTIONS = ['Active', 'Resigned', 'Terminated'];
 const TYPE_OPTIONS = ['Regular', 'Probationary', 'Contractual'];
 
 /* ══════════════════════════════════════
-   AUTH GATE
-══════════════════════════════════════ */
-function setLoginStatus(msg, cls){
-  const el = document.getElementById('loginStatus');
-  el.textContent = msg;
-  el.className = 'login-status' + (cls ? ' ' + cls : '');
-}
-
-async function sendMagicLink(){
-  const email = document.getElementById('loginEmail').value.trim();
-  if(!email){ setLoginStatus('Enter your email first.', 'err'); return; }
-  const btn = document.getElementById('loginBtn');
-  btn.disabled = true;
-  setLoginStatus('Sending…');
-  const { error } = await sb.auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: false }
-  });
-  btn.disabled = false;
-  if(error){
-    setLoginStatus('Could not send code: ' + error.message, 'err');
-  } else {
-    setLoginStatus('Code sent — check your email and enter it below.', 'ok');
-    document.getElementById('loginCode').style.display = 'block';
-    document.getElementById('verifyBtn').style.display = 'block';
-    document.getElementById('loginEmail').disabled = true;
-    document.getElementById('loginCode').focus();
-  }
-}
-
-async function verifyCode(){
-  const email = document.getElementById('loginEmail').value.trim();
-  const code = document.getElementById('loginCode').value.trim();
-  if(!code){ setLoginStatus('Enter the code from your email.', 'err'); return; }
-  const btn = document.getElementById('verifyBtn');
-  btn.disabled = true;
-  setLoginStatus('Verifying…');
-  const { error } = await sb.auth.verifyOtp({ email, token: code, type: 'email' });
-  btn.disabled = false;
-  if(error){
-    setLoginStatus('Invalid or expired code: ' + error.message, 'err');
-  }
-  // on success, onAuthStateChange fires and showApp() takes over
-}
-
-function signOut(){
-  sb.auth.signOut().then(() => location.reload());
-}
-
-async function showApp(session){
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('appRoot').style.display = 'block';
-  document.getElementById('userEmailLabel').textContent = session.user.email;
-  await ensureSeeded();
-  await loadEmployees();
-}
-
-function showLogin(){
-  document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('appRoot').style.display = 'none';
-}
-
-sb.auth.onAuthStateChange((event, session) => {
-  if(session){ showApp(session); } else { showLogin(); }
-});
-
-sb.auth.getSession().then(({ data: { session } }) => {
-  if(session){ showApp(session); } else { showLogin(); }
-});
-
-/* ══════════════════════════════════════
-   DATA (Supabase-backed)
+   DATA (Supabase-backed, open access)
 ══════════════════════════════════════ */
 
 // One-time seed from the payroll workbook's employee names, only if the table is empty.
@@ -709,6 +602,11 @@ async function ensureSeeded(){
     if(insertErr) console.error('seed insert failed', insertErr);
   }
 }
+
+(async function init(){
+  await ensureSeeded();
+  await loadEmployees();
+})();
 
 async function loadEmployees(){
   const { data, error } = await sb.from('employees_201').select('*').order('name');
