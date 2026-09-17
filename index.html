@@ -551,6 +551,7 @@ body {
 <div class="toolbar" id="filterBar" style="display:none">
   <span class="wk-label">Filter by:</span>
   <select class="wk-sel" id="filterDept"><option value="">All Departments</option></select>
+  <select class="wk-sel" id="filterRole"><option value="">All Roles</option></select>
   <select class="wk-sel" id="filterStatus">
     <option value="">All Statuses</option>
     <option value="Active">Active</option>
@@ -562,6 +563,24 @@ body {
     <option value="Regular">Regular</option>
     <option value="Probationary">Probationary</option>
     <option value="Contractual">Contractual</option>
+  </select>
+  <select class="wk-sel" id="filterInsurance">
+    <option value="">All Insurance</option>
+    <option value="Monthly">Monthly</option>
+    <option value="Quarterly">Quarterly</option>
+    <option value="Semi-Annually">Semi-Annually</option>
+    <option value="Annual">Annual</option>
+    <option value="__unset__">Not Set</option>
+  </select>
+  <select class="wk-sel" id="filterSss">
+    <option value="">All SSS</option>
+    <option value="yes">Enrolled</option>
+    <option value="no">Not Enrolled</option>
+  </select>
+  <select class="wk-sel" id="filterCurrency">
+    <option value="">All Currencies</option>
+    <option value="PHP">PHP</option>
+    <option value="USD">USD</option>
   </select>
   <button class="io-btn" onclick="clearFilters()">Clear Filters</button>
 </div>
@@ -654,8 +673,12 @@ let HISTORY500 = [];
 let searchTerm = '';
 let historySearchTerm = '';
 let filterDept = '';
+let filterRole = '';
 let filterStatus = '';
 let filterType = '';
+let filterInsurance = '';
+let filterSss = '';
+let filterCurrency = '';
 
 const STATUS_OPTIONS = ['Active', 'Resigned', 'Terminated'];
 const TYPE_OPTIONS = ['Regular', 'Probationary', 'Contractual'];
@@ -737,17 +760,31 @@ function populateFilterOptions(){
   const depts = [...new Set(EMP201.map(r => r.department).filter(Boolean))].sort();
   sel.innerHTML = '<option value="">All Departments</option>' + depts.map(d => `<option value="${d}">${d}</option>`).join('');
   sel.value = current && depts.includes(current) ? current : '';
+
+  const roleSel = document.getElementById('filterRole');
+  const currentRole = roleSel.value;
+  const roles = [...new Set(EMP201.map(r => r.role).filter(Boolean))].sort();
+  roleSel.innerHTML = '<option value="">All Roles</option>' + roles.map(r => `<option value="${r}">${r}</option>`).join('');
+  roleSel.value = currentRole && roles.includes(currentRole) ? currentRole : '';
 }
 
 document.getElementById('filterDept').addEventListener('change', (e) => { filterDept = e.target.value; render(); });
+document.getElementById('filterRole').addEventListener('change', (e) => { filterRole = e.target.value; render(); });
 document.getElementById('filterStatus').addEventListener('change', (e) => { filterStatus = e.target.value; render(); });
 document.getElementById('filterType').addEventListener('change', (e) => { filterType = e.target.value; render(); });
+document.getElementById('filterInsurance').addEventListener('change', (e) => { filterInsurance = e.target.value; render(); });
+document.getElementById('filterSss').addEventListener('change', (e) => { filterSss = e.target.value; render(); });
+document.getElementById('filterCurrency').addEventListener('change', (e) => { filterCurrency = e.target.value; render(); });
 
 function clearFilters(){
-  filterDept = ''; filterStatus = ''; filterType = ''; searchTerm = '';
+  filterDept = ''; filterRole = ''; filterStatus = ''; filterType = ''; filterInsurance = ''; filterSss = ''; filterCurrency = ''; searchTerm = '';
   document.getElementById('filterDept').value = '';
+  document.getElementById('filterRole').value = '';
   document.getElementById('filterStatus').value = '';
   document.getElementById('filterType').value = '';
+  document.getElementById('filterInsurance').value = '';
+  document.getElementById('filterSss').value = '';
+  document.getElementById('filterCurrency').value = '';
   document.getElementById('searchBox').value = '';
   render();
 }
@@ -912,8 +949,12 @@ function render(){
   const rows = EMP201
     .filter(r => !searchTerm || r.name.toLowerCase().includes(searchTerm))
     .filter(r => !filterDept || r.department === filterDept)
+    .filter(r => !filterRole || r.role === filterRole)
     .filter(r => !filterStatus || r.status === filterStatus)
     .filter(r => !filterType || r.employment_type === filterType)
+    .filter(r => !filterInsurance || (filterInsurance === '__unset__' ? !r.insurance_frequency : r.insurance_frequency === filterInsurance))
+    .filter(r => !filterSss || (filterSss === 'yes' ? !!r.sss_enrolled : !r.sss_enrolled))
+    .filter(r => !filterCurrency || (r.currency || 'PHP') === filterCurrency)
     .sort((a,b) => a.name.localeCompare(b.name));
 
   document.getElementById('recCount').textContent = `${rows.length} of ${EMP201.length} employee${EMP201.length!==1?'s':''}`;
