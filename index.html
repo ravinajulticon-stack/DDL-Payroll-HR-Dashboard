@@ -1906,12 +1906,14 @@ function renderPay202(){
       regularHours += Math.min(workedHrs + paidLeaveHrs, 8);
     });
     const standardHours = days.length * 8;
-    // Capped at 100% so attendance can only reduce Monthly Pay, never inflate it — extra hours are Overtime, not this.
-    const attendanceFactor = standardHours > 0 ? Math.min(regularHours / standardHours, 1) : 0;
-    const nativeMonthlyPay = basicRate * attendanceFactor;
     // Hourly rate = Monthly Rate x 12 / 52 / 40 (annualise -> weekly -> hourly based on 40-hr week).
     // Applies universally regardless of currency -- basic_pay_rate is always the monthly salary.
+    // Used for both absent-day deductions and overtime, keeping both consistent.
     const hourlyRate = basicRate * 12 / 52 / 40;
+    // Deduct absent hours at the same hourly rate: full pay minus (absentHours x hourlyRate).
+    // regularHours already includes paid leave hours, so only truly absent hours are deducted.
+    const absentHours = Math.max(0, standardHours - regularHours);
+    const nativeMonthlyPay = Math.max(0, basicRate - (absentHours * hourlyRate));
     const overtimeNative = hourlyRate * OT_MULTIPLIER * totalOt;
 
     // Normalize everything to USD first: USD employees pass through; PHP employees convert using this period's rate.
