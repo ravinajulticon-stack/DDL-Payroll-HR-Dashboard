@@ -520,16 +520,22 @@ body {
 .ts-grid-table tbody tr:hover td.ts-total-col{ background:#323234; }
 .pay202-table{ table-layout:fixed; width:max-content; }
 .pay202-table th, .pay202-table td{ box-sizing:border-box; }
-.pay202-table th:nth-child(1), .pay202-table td:nth-child(1){ width:180px; }
+.pay202-table th:nth-child(1), .pay202-table td:nth-child(1){ width:150px; }
 .pay202-table th:nth-child(2), .pay202-table td:nth-child(2){ width:100px; }
-.pay202-table th:nth-child(3), .pay202-table td:nth-child(3){ width:110px; }
-.pay202-table th:nth-child(4), .pay202-table td:nth-child(4){ width:90px; }
+.pay202-table th:nth-child(3), .pay202-table td:nth-child(3){ width:100px; }
+.pay202-table th:nth-child(4), .pay202-table td:nth-child(4){ width:100px; }
 .pay202-table th:nth-child(5), .pay202-table td:nth-child(5){ width:100px; }
-.pay202-table th:nth-child(6), .pay202-table td:nth-child(6){ width:100px; }
-.pay202-table th:nth-child(7), .pay202-table td:nth-child(7){ width:100px; }
+.pay202-table th:nth-child(6), .pay202-table td:nth-child(6){ width:90px; }
+.pay202-table th:nth-child(7), .pay202-table td:nth-child(7){ width:90px; }
 .pay202-table th:nth-child(8), .pay202-table td:nth-child(8){ width:100px; }
-.pay202-table th:nth-child(9), .pay202-table td:nth-child(9){ width:100px; }
+.pay202-table th:nth-child(9), .pay202-table td:nth-child(9){ width:110px; }
 .pay202-table th:nth-child(10), .pay202-table td:nth-child(10){ width:130px; }
+.pay202-table th:nth-child(11), .pay202-table td:nth-child(11){ width:100px; }
+.pay202-table th:nth-child(12), .pay202-table td:nth-child(12){ width:90px; }
+.pay202-table th:nth-child(13), .pay202-table td:nth-child(13){ width:100px; }
+.pay202-table th:nth-child(14), .pay202-table td:nth-child(14){ width:100px; }
+.pay202-table th:nth-child(15), .pay202-table td:nth-child(15){ width:100px; }
+.pay202-table th:nth-child(16), .pay202-table td:nth-child(16){ width:120px; font-weight:700; color:var(--blue-light); }
 .rec-table thead th{
   position:sticky; top:0; z-index:2;
   background:#2c2c2e; color:var(--text-3); text-transform:uppercase; letter-spacing:0.4px;
@@ -666,10 +672,11 @@ body {
 
 <!-- EMPLOYEE 202 FILTER BAR -->
 <div class="toolbar" id="pay202FilterBar" style="display:none">
-  <span class="wk-label">Filter by:</span>
-  <select class="wk-sel" id="pay202EmployeeFilter"><option value="">All Employees</option></select>
-  <select class="wk-sel" id="pay202YearFilter"><option value="">All Years</option></select>
-  <button class="io-btn" onclick="clearPay202Filters()">Clear Filters</button>
+  <span class="wk-label">Show:</span>
+  <select class="wk-sel" id="pay202StatusFilter">
+    <option value="Active">Active Employees</option>
+    <option value="">All Employees</option>
+  </select>
 </div>
 
 <!-- MAIN -->
@@ -731,11 +738,15 @@ body {
     <div id="timesheetBody"></div>
   </div>
 
-  <!-- EMPLOYEE 202 (COMPUTED PAY, FROM EMPLOYEE 201 RATE + TIMESHEET HOURS) -->
+  <!-- EMPLOYEE 202 (FINAL PAYOUT COMPUTATION LAYOUT) -->
   <div id="pay202View" style="display:none">
     <div class="card" style="margin-bottom:16px">
-      <div class="card-body" style="font-size:11.5px;color:var(--text-3)">
-        Standard Pay = Rate × Standard Hours &nbsp;·&nbsp; Overtime Pay = Rate × 1.25 × OT Hours &nbsp;·&nbsp; Holiday Pay = Rate × 2.0 × Holiday Hours &nbsp;·&nbsp; Vacation Pay = Rate × 1.0 × Vacation Hours
+      <div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div>
+          <label class="wk-label" style="display:block;margin-bottom:4px">Pay Period (cutoff 11th&ndash;10th)</label>
+          <input type="month" class="search-box" id="pay202PeriodInput" style="min-width:160px">
+        </div>
+        <span class="rec-count" id="pay202RangeLabel"></span>
       </div>
     </div>
     <div id="pay202Body"></div>
@@ -754,14 +765,13 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const SEED = JSON.parse(document.getElementById('seed-data').textContent);
 let EMP201 = [];
 let HISTORY500 = [];
-let TIMESHEETS = [];
 let searchTerm = '';
 let historySearchTerm = '';
 let historyEmployeeFilter = '';
 let historyYearFilter = '';
 let historyPeriodFilter = '';
-let pay202EmployeeFilter = '';
-let pay202YearFilter = '';
+let pay202SelectedPeriod = '2026-09';
+let pay202StatusFilter = 'Active';
 let filterDept = '';
 let filterRole = '';
 let filterStatus = '';
@@ -779,7 +789,6 @@ const VACATION_MULTIPLIER = 1.0;
 /* ── view toggle ── */
 let currentView = 'overview';
 let historyLoaded = false;
-let timesheetsLoaded = false;
 let timesheetEntriesLoaded = false;
 function switchView(view, btn){
   currentView = view;
@@ -807,12 +816,7 @@ function switchView(view, btn){
   } else if(view === 'timesheet'){
     renderTimesheetGrid();
   }
-  if(view === 'pay202' && !timesheetsLoaded){
-    timesheetsLoaded = true;
-    loadTimesheets();
-  } else if(view === 'pay202'){
-    renderPay202();
-  }
+  if(view === 'pay202') renderPay202();
 }
 
 function renderKpis(){
@@ -1163,148 +1167,53 @@ function fmtPeriodLabel(periodMonthStr){
 }
 
 /* ══════════════════════════════════════
-   EMPLOYEE 202 DATA SOURCE (legacy monthly-aggregate table; still used by Employee 202 tab)
+   EMPLOYEE 202 (Final Payout layout — structure only for now, amounts to follow)
 ══════════════════════════════════════ */
-async function loadTimesheets(){
-  const { data, error } = await sb.from('timesheets').select('*').order('period_month', { ascending: true });
-  if(error){ alert('Could not load timesheets: ' + error.message); return; }
-  TIMESHEETS = data;
-  populatePay202FilterOptions();
-  if(currentView === 'pay202') renderPay202();
-}
+const PAY202_COLUMNS = [
+  'Monthly Pay', 'Home Office', 'Double Pay', 'Others (USD)', 'Overtime', 'Bank Fees',
+  'Total USD', 'Ebury USD/PHP', 'Note', 'Maxicare', 'SSS', '13th', 'Other (PHP)',
+  'Total PHP', 'Total Payout'
+];
 
-function yearOptionsFromData(list, dateKey){
-  const now = new Date().getFullYear();
-  const years = new Set([now-1, now, now+1].map(String));
-  list.forEach(r => { const y = (r[dateKey]||'').slice(0,4); if(y) years.add(y); });
-  return [...years].sort().reverse();
-}
-
-/* ══════════════════════════════════════
-   TIMESHEET (bulk daily hours entry: employees × weekdays for a pay period)
-══════════════════════════════════════ */
-let TIMESHEET_ENTRIES = [];
-let tsSelectedPeriod = '2026-09';
-let tsStatusFilter = 'Active';
-
-async function loadTimesheetEntries(){
-  const container = document.getElementById('timesheetBody');
-  if(container) container.innerHTML = `<div style="text-align:center;color:var(--text-3);padding:24px">Loading timesheet\u2026</div>`;
-  const { data, error } = await sb.from('timesheet_entries').select('*');
-  if(error){ alert('Could not load timesheet entries: ' + error.message); return; }
-  TIMESHEET_ENTRIES = data;
-  renderTimesheetGrid();
-}
-
-// Every Mon\u2013Fri between the 11th of the prior month and the 10th of periodStr ('YYYY-MM', the pay month).
-function weekdaysInPeriod(periodStr){
-  const [y, m] = periodStr.split('-').map(Number);
-  const endDate = new Date(y, m - 1, 10);
-  const startDate = new Date(y, m - 2, 11);
-  const days = [];
-  const cur = new Date(startDate);
-  while(cur <= endDate){
-    const dow = cur.getDay();
-    if(dow >= 1 && dow <= 5){
-      const yyyy = cur.getFullYear();
-      const mm = String(cur.getMonth() + 1).padStart(2, '0');
-      const dd = String(cur.getDate()).padStart(2, '0');
-      days.push({
-        date: `${yyyy}-${mm}-${dd}`,
-        dayName: cur.toLocaleDateString('en-US', { weekday: 'short' }),
-        monthShort: cur.toLocaleDateString('en-US', { month: 'short' }),
-        dayNum: cur.getDate()
-      });
-    }
-    cur.setDate(cur.getDate() + 1);
-  }
-  return days;
-}
-
-document.getElementById('tsGridPeriodInput').addEventListener('change', (e) => {
-  if(e.target.value){ tsSelectedPeriod = e.target.value; renderTimesheetGrid(); }
+document.getElementById('pay202PeriodInput').addEventListener('change', (e) => {
+  if(e.target.value){ pay202SelectedPeriod = e.target.value; renderPay202(); }
 });
-document.getElementById('tsStatusFilter').addEventListener('change', (e) => {
-  tsStatusFilter = e.target.value; renderTimesheetGrid();
+document.getElementById('pay202StatusFilter').addEventListener('change', (e) => {
+  pay202StatusFilter = e.target.value; renderPay202();
 });
 
-function fmtHrs(n){
-  const rounded = Math.round(n * 100) / 100;
-  if(rounded === 0) return '\u2014';
-  return Number.isInteger(rounded) ? String(rounded) : String(rounded.toFixed(2)).replace(/0+$/,'').replace(/\.$/,'');
-}
-
-async function updateTimesheetHours(employeeId, workDate, hours){
-  const trimmed = (hours || '').toString().trim();
-  const existing = TIMESHEET_ENTRIES.find(t => t.employee_id === employeeId && t.work_date === workDate);
-
-  if(trimmed === ''){
-    if(existing){
-      const { error } = await sb.from('timesheet_entries').delete().eq('id', existing.id);
-      if(error){ alert('Could not clear hours: ' + error.message); return; }
-      TIMESHEET_ENTRIES = TIMESHEET_ENTRIES.filter(t => t.id !== existing.id);
-    }
-    renderTimesheetGrid();
-    return;
-  }
-
-  const num = parseFloat(trimmed);
-  if(isNaN(num)){ alert('Please enter a valid number of hours.'); renderTimesheetGrid(); return; }
-
-  const { data, error } = await sb.from('timesheet_entries')
-    .upsert({ employee_id: employeeId, work_date: workDate, hours_worked: num, updated_at: new Date().toISOString() }, { onConflict: 'employee_id,work_date' })
-    .select();
-  if(error){ alert('Could not save hours: ' + error.message); return; }
-  const saved = data[0];
-  if(existing) Object.assign(existing, saved);
-  else TIMESHEET_ENTRIES.push(saved);
-  renderTimesheetGrid();
-}
-
-function renderTimesheetGrid(){
-  const container = document.getElementById('timesheetBody');
+function renderPay202(){
+  const container = document.getElementById('pay202Body');
   if(!container) return;
 
-  const periodInput = document.getElementById('tsGridPeriodInput');
-  if(!periodInput.value) periodInput.value = tsSelectedPeriod;
+  const periodInput = document.getElementById('pay202PeriodInput');
+  if(!periodInput.value) periodInput.value = pay202SelectedPeriod;
 
-  const days = weekdaysInPeriod(tsSelectedPeriod);
-  const rangeLabel = document.getElementById('tsGridRangeLabel');
-  if(rangeLabel) rangeLabel.textContent = days.length ? `${fmtPeriodLabel(tsSelectedPeriod + '-01')} \u00b7 ${days.length} weekdays` : '';
+  const rangeLabel = document.getElementById('pay202RangeLabel');
+  if(rangeLabel) rangeLabel.textContent = fmtPeriodLabel(pay202SelectedPeriod + '-01');
 
   const employees = EMP201
-    .filter(e => !tsStatusFilter || e.status === tsStatusFilter)
+    .filter(e => !pay202StatusFilter || e.status === pay202StatusFilter)
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  if(employees.length === 0 || days.length === 0){
-    container.innerHTML = `<div style="text-align:center;color:var(--text-3);padding:24px">No employees or days to show.</div>`;
+  if(employees.length === 0){
+    container.innerHTML = `<div style="text-align:center;color:var(--text-3);padding:24px">No employees to show.</div>`;
     return;
   }
 
-  const headerCells = days.map(d => `<th><span class="ts-grid-day-name">${d.dayName}</span><span class="ts-grid-day-num">${d.monthShort} ${d.dayNum}</span></th>`).join('');
-
+  const headerCells = PAY202_COLUMNS.map(c => `<th>${c}</th>`).join('');
   const bodyRows = employees.map(emp => {
-    let totalHours = 0, totalOt = 0;
-    const cells = days.map(d => {
-      const entry = TIMESHEET_ENTRIES.find(t => t.employee_id === emp.id && t.work_date === d.date);
-      const hrs = entry ? (parseFloat(entry.hours_worked) || 0) : 0;
-      if(entry){
-        totalHours += hrs;
-        if(hrs > 8) totalOt += (hrs - 8);
-      }
-      const val = entry ? entry.hours_worked : '';
-      return `<td><input type="number" step="0.5" min="0" placeholder="—" value="${val}" onchange="updateTimesheetHours('${emp.id}','${d.date}',this.value)"></td>`;
-    }).join('');
-    return `<tr><td>${emp.name}</td><td class="ts-total-col">${fmtHrs(totalHours)}</td><td class="ts-total-col">${fmtHrs(totalOt)}</td>${cells}</tr>`;
+    const placeholderCells = PAY202_COLUMNS.map(() => `<td>\u2014</td>`).join('');
+    return `<tr><td>${emp.name}</td>${placeholderCells}</tr>`;
   }).join('');
 
   container.innerHTML = `
     <div class="card">
       <div class="card-body" style="padding:0">
         <div class="tbl-scroll" style="max-height:calc(100vh - 230px)">
-          <table class="rec-table ts-grid-table">
-            <thead><tr><th>Employee</th><th class="ts-total-col">Total Hrs</th><th class="ts-total-col">Total OT</th>${headerCells}</tr></thead>
+          <table class="rec-table pay202-table">
+            <thead><tr><th>Name</th>${headerCells}</tr></thead>
             <tbody>${bodyRows}</tbody>
           </table>
         </div>
@@ -1312,111 +1221,6 @@ function renderTimesheetGrid(){
     </div>`;
 }
 
-/* ══════════════════════════════════════
-   EMPLOYEE 202 (computed pay: rate from Employee 201 × hours from Timesheet)
-══════════════════════════════════════ */
-function populatePay202FilterOptions(){
-  const empSel = document.getElementById('pay202EmployeeFilter');
-  const current = empSel.value;
-  const sorted = EMP201.slice().sort((a,b) => a.name.localeCompare(b.name));
-  empSel.innerHTML = '<option value="">All Employees</option>' + sorted.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
-  if(current) empSel.value = current;
-
-  const yearSel = document.getElementById('pay202YearFilter');
-  const currentYear = yearSel.value;
-  const years = yearOptionsFromData(TIMESHEETS, 'period_month');
-  yearSel.innerHTML = '<option value="">All Years</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
-  if(currentYear) yearSel.value = currentYear;
-}
-
-document.getElementById('pay202EmployeeFilter').addEventListener('change', (e) => { pay202EmployeeFilter = e.target.value; renderPay202(); });
-document.getElementById('pay202YearFilter').addEventListener('change', (e) => { pay202YearFilter = e.target.value; renderPay202(); });
-
-function clearPay202Filters(){
-  pay202EmployeeFilter = ''; pay202YearFilter = '';
-  document.getElementById('pay202EmployeeFilter').value = '';
-  document.getElementById('pay202YearFilter').value = '';
-  renderPay202();
-}
-
-function renderPay202(){
-  const container = document.getElementById('pay202Body');
-  if(!container) return;
-  const rows = TIMESHEETS
-    .filter(t => !pay202EmployeeFilter || t.employee_id === pay202EmployeeFilter)
-    .filter(t => !pay202YearFilter || (t.period_month||'').startsWith(pay202YearFilter));
-
-  if(rows.length === 0){
-    container.innerHTML = `<div style="text-align:center;color:var(--text-3);padding:24px">No timesheet entries to compute pay from yet.</div>`;
-    return;
-  }
-
-  const groups = {};
-  rows.forEach(t => { (groups[t.employee_id] = groups[t.employee_id] || []).push(t); });
-  const ids = Object.keys(groups).sort((a,b) => empName(a).localeCompare(empName(b)));
-
-  container.innerHTML = ids.map(id => {
-    const emp = empById(id);
-    const rate = (emp && parseFloat(emp.basic_pay_rate)) || 0;
-    const currency = (emp && emp.currency) || 'PHP';
-    const recs = groups[id].slice().sort((a,b) => (a.period_month||'').localeCompare(b.period_month||''));
-    let grandTotal = 0;
-    const rowsHtml = recs.map(t => {
-      const stdHrs = parseFloat(t.standard_hours) || 0;
-      const otHrs = parseFloat(t.overtime_hours) || 0;
-      const holHrs = parseFloat(t.holiday_hours) || 0;
-      const vacHrs = parseFloat(t.vacation_hours) || 0;
-      const stdPay = rate * stdHrs;
-      const otPay = rate * OT_MULTIPLIER * otHrs;
-      const holPay = rate * HOLIDAY_MULTIPLIER * holHrs;
-      const vacPay = rate * VACATION_MULTIPLIER * vacHrs;
-      const total = stdPay + otPay + holPay + vacPay;
-      grandTotal += total;
-      return `
-            <tr>
-              <td>${fmtPeriodLabel(t.period_month)}</td>
-              <td style="text-align:center">${stdHrs}</td>
-              <td style="text-align:right">${fmtMoney(stdPay)}</td>
-              <td style="text-align:center">${otHrs}</td>
-              <td style="text-align:right">${fmtMoney(otPay)}</td>
-              <td style="text-align:center">${holHrs}</td>
-              <td style="text-align:right">${fmtMoney(holPay)}</td>
-              <td style="text-align:center">${vacHrs}</td>
-              <td style="text-align:right">${fmtMoney(vacPay)}</td>
-              <td style="text-align:right;font-weight:600;color:var(--blue-light)">${fmtMoney(total)}</td>
-            </tr>`;
-    }).join('');
-    return `
-    <div class="sec-block" style="margin-bottom:16px">
-      <div class="sec-hd">
-        <span class="sec-hd-name">${empName(id)} <span style="color:var(--text-3);font-weight:500;text-transform:none">(${currency} ${fmtMoney(rate)}/period)</span></span>
-        <div class="sec-hd-right">
-          <span class="rec-count">${recs.length} period${recs.length!==1?'s':''}</span>
-          <span class="sec-total" style="color:var(--blue-light)">${fmtMoney(grandTotal)} total</span>
-        </div>
-      </div>
-      <div class="tbl-scroll">
-        <table class="rec-table pay202-table">
-          <thead>
-            <tr>
-              <th>Pay Period</th>
-              <th>Std Hrs</th>
-              <th>Standard Pay</th>
-              <th>OT Hrs</th>
-              <th>Overtime Pay</th>
-              <th>Holiday Hrs</th>
-              <th>Holiday Pay</th>
-              <th>Vacation Hrs</th>
-              <th>Vacation Pay</th>
-              <th>Total Payout</th>
-            </tr>
-          </thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>
-      </div>
-    </div>`;
-  }).join('');
-}
 
 function render(){
   const rows = EMP201
