@@ -506,13 +506,13 @@ body {
 .ts-grid-table{ table-layout:fixed; width:max-content; border-collapse:collapse; }
 .ts-grid-table th, .ts-grid-table td{ box-sizing:border-box; }
 .ts-grid-table th:first-child, .ts-grid-table td:first-child{ width:180px; min-width:180px; }
-.ts-grid-table th:not(:first-child), .ts-grid-table td:not(:first-child){ width:64px; min-width:64px; text-align:center; }
+.ts-grid-table th:not(:first-child), .ts-grid-table td:not(:first-child){ width:64px; min-width:64px; text-align:center; position:relative; }
 .ts-grid-table th{ line-height:1.3; }
 .ts-grid-table td input{ width:48px; text-align:center; padding:5px 4px; }
 .ts-grid-table td.ts-weekend{ background:rgba(255,255,255,0.02); }
-.ts-leave-badge{ margin-top:3px; font-size:8px; font-weight:700; padding:1px 3px; border-radius:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center; }
-.ts-leave-paid{ background:rgba(48,209,88,0.15); color:#30d158; }
-.ts-leave-unpaid{ background:rgba(255,159,10,0.15); color:#ff9f0a; }
+.ts-leave-badge{ position:absolute; bottom:1px; left:1px; right:1px; font-size:8px; font-weight:700; padding:1px 2px; border-radius:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center; pointer-events:none; }
+.ts-leave-paid{ background:rgba(48,209,88,0.18); color:#30d158; }
+.ts-leave-unpaid{ background:rgba(255,159,10,0.18); color:#ff9f0a; }
 .ts-grid-day-name{ display:block; font-size:8.5px; color:var(--text-3); text-transform:uppercase; }
 .ts-grid-day-num{ display:block; font-size:11px; }
 .ts-grid-table th.ts-total-col, .ts-grid-table td.ts-total-col{ width:80px; min-width:80px; font-weight:700; color:var(--blue-light); }
