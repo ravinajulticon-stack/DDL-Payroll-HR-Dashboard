@@ -1167,6 +1167,138 @@ function fmtPeriodLabel(periodMonthStr){
 }
 
 /* ══════════════════════════════════════
+   TIMESHEET (bulk daily hours entry: employees × weekdays for a pay period)
+══════════════════════════════════════ */
+let TIMESHEET_ENTRIES = [];
+let tsSelectedPeriod = '2026-09';
+let tsStatusFilter = 'Active';
+
+async function loadTimesheetEntries(){
+  const container = document.getElementById('timesheetBody');
+  if(container) container.innerHTML = `<div style="text-align:center;color:var(--text-3);padding:24px">Loading timesheet\u2026</div>`;
+  const { data, error } = await sb.from('timesheet_entries').select('*');
+  if(error){ alert('Could not load timesheet entries: ' + error.message); return; }
+  TIMESHEET_ENTRIES = data;
+  renderTimesheetGrid();
+}
+
+// Every Mon\u2013Fri between the 11th of the prior month and the 10th of periodStr ('YYYY-MM', the pay month).
+function weekdaysInPeriod(periodStr){
+  const [y, m] = periodStr.split('-').map(Number);
+  const endDate = new Date(y, m - 1, 10);
+  const startDate = new Date(y, m - 2, 11);
+  const days = [];
+  const cur = new Date(startDate);
+  while(cur <= endDate){
+    const dow = cur.getDay();
+    if(dow >= 1 && dow <= 5){
+      const yyyy = cur.getFullYear();
+      const mm = String(cur.getMonth() + 1).padStart(2, '0');
+      const dd = String(cur.getDate()).padStart(2, '0');
+      days.push({
+        date: `${yyyy}-${mm}-${dd}`,
+        dayName: cur.toLocaleDateString('en-US', { weekday: 'short' }),
+        monthShort: cur.toLocaleDateString('en-US', { month: 'short' }),
+        dayNum: cur.getDate()
+      });
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return days;
+}
+
+document.getElementById('tsGridPeriodInput').addEventListener('change', (e) => {
+  if(e.target.value){ tsSelectedPeriod = e.target.value; renderTimesheetGrid(); }
+});
+document.getElementById('tsStatusFilter').addEventListener('change', (e) => {
+  tsStatusFilter = e.target.value; renderTimesheetGrid();
+});
+
+function fmtHrs(n){
+  const rounded = Math.round(n * 100) / 100;
+  if(rounded === 0) return '\u2014';
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded.toFixed(2)).replace(/0+$/,'').replace(/\.$/,'');
+}
+
+async function updateTimesheetHours(employeeId, workDate, hours){
+  const trimmed = (hours || '').toString().trim();
+  const existing = TIMESHEET_ENTRIES.find(t => t.employee_id === employeeId && t.work_date === workDate);
+
+  if(trimmed === ''){
+    if(existing){
+      const { error } = await sb.from('timesheet_entries').delete().eq('id', existing.id);
+      if(error){ alert('Could not clear hours: ' + error.message); return; }
+      TIMESHEET_ENTRIES = TIMESHEET_ENTRIES.filter(t => t.id !== existing.id);
+    }
+    renderTimesheetGrid();
+    return;
+  }
+
+  const num = parseFloat(trimmed);
+  if(isNaN(num)){ alert('Please enter a valid number of hours.'); renderTimesheetGrid(); return; }
+
+  const { data, error } = await sb.from('timesheet_entries')
+    .upsert({ employee_id: employeeId, work_date: workDate, hours_worked: num, updated_at: new Date().toISOString() }, { onConflict: 'employee_id,work_date' })
+    .select();
+  if(error){ alert('Could not save hours: ' + error.message); return; }
+  const saved = data[0];
+  if(existing) Object.assign(existing, saved);
+  else TIMESHEET_ENTRIES.push(saved);
+  renderTimesheetGrid();
+}
+
+function renderTimesheetGrid(){
+  const container = document.getElementById('timesheetBody');
+  if(!container) return;
+
+  const periodInput = document.getElementById('tsGridPeriodInput');
+  if(!periodInput.value) periodInput.value = tsSelectedPeriod;
+
+  const days = weekdaysInPeriod(tsSelectedPeriod);
+  const rangeLabel = document.getElementById('tsGridRangeLabel');
+  if(rangeLabel) rangeLabel.textContent = days.length ? `${fmtPeriodLabel(tsSelectedPeriod + '-01')} \u00b7 ${days.length} weekdays` : '';
+
+  const employees = EMP201
+    .filter(e => !tsStatusFilter || e.status === tsStatusFilter)
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  if(employees.length === 0 || days.length === 0){
+    container.innerHTML = `<div style="text-align:center;color:var(--text-3);padding:24px">No employees or days to show.</div>`;
+    return;
+  }
+
+  const headerCells = days.map(d => `<th><span class="ts-grid-day-name">${d.dayName}</span><span class="ts-grid-day-num">${d.monthShort} ${d.dayNum}</span></th>`).join('');
+
+  const bodyRows = employees.map(emp => {
+    let totalHours = 0, totalOt = 0;
+    const cells = days.map(d => {
+      const entry = TIMESHEET_ENTRIES.find(t => t.employee_id === emp.id && t.work_date === d.date);
+      const hrs = entry ? (parseFloat(entry.hours_worked) || 0) : 0;
+      if(entry){
+        totalHours += hrs;
+        if(hrs > 8) totalOt += (hrs - 8);
+      }
+      const val = entry ? entry.hours_worked : '';
+      return `<td><input type="number" step="0.5" min="0" placeholder="\u2014" value="${val}" onchange="updateTimesheetHours('${emp.id}','${d.date}',this.value)"></td>`;
+    }).join('');
+    return `<tr><td>${emp.name}</td><td class="ts-total-col">${fmtHrs(totalHours)}</td><td class="ts-total-col">${fmtHrs(totalOt)}</td>${cells}</tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="card">
+      <div class="card-body" style="padding:0">
+        <div class="tbl-scroll" style="max-height:calc(100vh - 230px)">
+          <table class="rec-table ts-grid-table">
+            <thead><tr><th>Employee</th><th class="ts-total-col">Total Hrs</th><th class="ts-total-col">Total OT</th>${headerCells}</tr></thead>
+            <tbody>${bodyRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ══════════════════════════════════════
    EMPLOYEE 202 (Final Payout layout — structure only for now, amounts to follow)
 ══════════════════════════════════════ */
 const PAY202_COLUMNS = [
