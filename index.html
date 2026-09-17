@@ -715,6 +715,7 @@ body {
                 <th>Department</th>
                 <th>Employment Type</th>
                 <th>Status</th>
+                <th>Exit Date</th>
                 <th>Work Email Address</th>
                 <th>SSS</th>
                 <th>SSS Amount (PHP)</th>
@@ -1797,7 +1798,7 @@ function render(){
 
   const tbody = document.getElementById('empBody');
   if(rows.length === 0){
-    tbody.innerHTML = `<tr><td colspan="17" style="text-align:center;color:var(--text-3);padding:24px">No employees match the current search/filters.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="18" style="text-align:center;color:var(--text-3);padding:24px">No employees match the current search/filters.</td></tr>`;
     return;
   }
 
@@ -1809,6 +1810,7 @@ function render(){
       <td>${field(rec,'department','Department')}</td>
       <td>${typeSelect(rec)}</td>
       <td>${statusPillOrSelect(rec)}</td>
+      <td>${field(rec,'exit_date','','date')}</td>
       <td>${field(rec,'pagibig','name@company.com','email')}</td>
       <td style="text-align:center"><input type="checkbox" ${rec.sss_enrolled?'checked':''} onchange="toggleSss('${rec.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;min-width:0"></td>
       <td>${moneyField(rec,'sss_amount','Amount')}</td>
