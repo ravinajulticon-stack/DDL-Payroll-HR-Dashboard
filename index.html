@@ -718,7 +718,7 @@ body {
           <select class="wk-sel" id="tsEmployeeSelect" style="min-width:200px"></select>
         </div>
         <div>
-          <label class="wk-label" style="display:block;margin-bottom:4px">Pay Period (cutoff ends this month, 11th\u201310th)</label>
+          <label class="wk-label" style="display:block;margin-bottom:4px">Pay Period (cutoff ends this month, 11th–10th)</label>
           <input type="month" class="search-box" id="tsPeriodInput" style="min-width:160px">
         </div>
         <div>
@@ -1160,7 +1160,7 @@ function fmtPeriodLabel(periodMonthStr){
   const endYear = d.getFullYear();
   const prev = new Date(d.getFullYear(), d.getMonth()-1, 11);
   const startMonth = prev.toLocaleDateString('en-US', { month:'short' });
-  return `${startMonth} 11 \u2013 ${endMonth} 10, ${endYear}`;
+  return `${startMonth} 11 – ${endMonth} 10, ${endYear}`;
 }
 
 /* ══════════════════════════════════════
@@ -1289,7 +1289,7 @@ function renderTimesheet(){
         <table class="rec-table timesheet-table">
           <thead>
             <tr>
-              <th>Pay Period (11th\u201310th)</th>
+              <th>Pay Period (11th–10th)</th>
               <th>Standard Hrs</th>
               <th>OT Hrs</th>
               <th>Holiday Hrs</th>
