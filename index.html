@@ -740,6 +740,38 @@ function insuranceSelect(rec){
   </select>`;
 }
 
+function fmtMoney(n){
+  if(n === '' || n === null || n === undefined) return '';
+  const num = typeof n === 'number' ? n : parseFloat(n);
+  if(isNaN(num)) return '';
+  return num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function moneyField(rec, key, placeholder=''){
+  const val = fmtMoney(rec[key]);
+  return `<input type="text" inputmode="decimal" value="${val}" placeholder="${placeholder}"
+    onfocus="this.value = (${JSON.stringify(rec[key])} ?? '')"
+    onblur="this.value = fmtMoney(this.value.replace(/,/g,''))"
+    onchange="updateMoneyField('${rec.id}','${key}',this.value)">`;
+}
+
+async function updateMoneyField(id, key, val){
+  const rec = EMP201.find(r => r.id === id);
+  if(!rec) return;
+  const cleaned = (val || '').toString().replace(/,/g, '').trim();
+  const num = cleaned === '' ? null : parseFloat(cleaned);
+  rec[key] = num;
+  const { error } = await sb.from('employees_201').update({ [key]: num }).eq('id', id);
+  if(error){ alert('Could not save change: ' + error.message); return; }
+}
+
+function currencySelect(rec){
+  const opts = ['PHP', 'USD'];
+  return `<select onchange="updateField('${rec.id}','currency',this.value)" style="min-width:60px">
+    ${opts.map(o => `<option value="${o}" ${(rec.currency||'PHP')===o?'selected':''}>${o}</option>`).join('')}
+  </select>`;
+}
+
 function statusPillOrSelect(rec){
   return `<select onchange="updateField('${rec.id}','status',this.value)">
     ${STATUS_OPTIONS.map(s => `<option ${rec.status===s?'selected':''}>${s}</option>`).join('')}
@@ -805,8 +837,8 @@ function render(){
       <td>${field(rec,'pagibig','name@company.com','email')}</td>
       <td style="text-align:center"><input type="checkbox" ${rec.sss_enrolled?'checked':''} onchange="toggleSss('${rec.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;min-width:0"></td>
       <td>${insuranceSelect(rec)}</td>
-      <td>${field(rec,'basic_pay_rate','Rate','number')}</td>
-      <td>${field(rec,'latest_total_payout','Total Payout','number')}</td>
+      <td><div style="display:flex;gap:4px;align-items:center">${currencySelect(rec)}${moneyField(rec,'basic_pay_rate','Rate')}</div></td>
+      <td>${moneyField(rec,'latest_total_payout','Total Payout')}</td>
       <td>${field(rec,'latest_pay_date','','date')}</td>
       <td><button class="del-btn" title="Remove" onclick="deleteEmployee('${rec.id}')">✕</button></td>
     </tr>
