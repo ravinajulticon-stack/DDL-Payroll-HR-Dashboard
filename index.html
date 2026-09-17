@@ -485,6 +485,24 @@ body {
 .search-box{ background:var(--surface-2); border:1px solid var(--border-strong); color:var(--text); padding:6px 10px; border-radius:7px; font-size:12.5px; font-family:inherit; min-width:220px; }
 .search-box:focus{ outline:none; border-color:var(--blue); }
 .rec-table{ border-collapse:collapse; font-size:12px; width:max-content; min-width:100%; }
+.history-table{ table-layout:fixed; width:max-content; }
+.history-table th, .history-table td{ box-sizing:border-box; overflow:hidden; text-overflow:ellipsis; }
+.history-table th:nth-child(1), .history-table td:nth-child(1){ width:90px; }
+.history-table th:nth-child(2), .history-table td:nth-child(2){ width:60px; }
+.history-table th:nth-child(3), .history-table td:nth-child(3){ width:110px; }
+.history-table th:nth-child(4), .history-table td:nth-child(4){ width:100px; }
+.history-table th:nth-child(5), .history-table td:nth-child(5){ width:80px; }
+.history-table th:nth-child(6), .history-table td:nth-child(6){ width:90px; }
+.history-table th:nth-child(7), .history-table td:nth-child(7){ width:90px; }
+.history-table th:nth-child(8), .history-table td:nth-child(8){ width:100px; }
+.history-table th:nth-child(9), .history-table td:nth-child(9){ width:80px; }
+.history-table th:nth-child(10), .history-table td:nth-child(10){ width:100px; }
+.history-table th:nth-child(11), .history-table td:nth-child(11){ width:90px; }
+.history-table th:nth-child(12), .history-table td:nth-child(12){ width:100px; }
+.history-table th:nth-child(13), .history-table td:nth-child(13){ width:90px; }
+.history-table th:nth-child(14), .history-table td:nth-child(14){ width:120px; }
+.history-table th:nth-child(15), .history-table td:nth-child(15){ width:80px; }
+.history-table th:nth-child(16), .history-table td:nth-child(16){ width:160px; }
 .rec-table thead th{
   position:sticky; top:0; z-index:2;
   background:#2c2c2e; color:var(--text-3); text-transform:uppercase; letter-spacing:0.4px;
@@ -590,6 +608,21 @@ body {
   <span class="wk-label">Filter by:</span>
   <select class="wk-sel" id="historyEmployeeFilter"><option value="">All Employees</option></select>
   <select class="wk-sel" id="historyYearFilter"><option value="">All Years</option></select>
+  <select class="wk-sel" id="historyPeriodFilter">
+    <option value="">All Periods</option>
+    <option value="1">Period 1</option>
+    <option value="2">Period 2</option>
+    <option value="3">Period 3</option>
+    <option value="4">Period 4</option>
+    <option value="5">Period 5</option>
+    <option value="6">Period 6</option>
+    <option value="7">Period 7</option>
+    <option value="8">Period 8</option>
+    <option value="9">Period 9</option>
+    <option value="10">Period 10</option>
+    <option value="11">Period 11</option>
+    <option value="12">Period 12</option>
+  </select>
   <button class="io-btn" onclick="clearHistoryFilters()">Clear Filters</button>
 </div>
 
@@ -653,6 +686,7 @@ let searchTerm = '';
 let historySearchTerm = '';
 let historyEmployeeFilter = '';
 let historyYearFilter = '';
+let historyPeriodFilter = '';
 let filterDept = '';
 let filterRole = '';
 let filterStatus = '';
@@ -906,11 +940,13 @@ function populateHistoryFilterOptions(){
 
 document.getElementById('historyEmployeeFilter').addEventListener('change', (e) => { historyEmployeeFilter = e.target.value; renderHistory(); });
 document.getElementById('historyYearFilter').addEventListener('change', (e) => { historyYearFilter = e.target.value; renderHistory(); });
+document.getElementById('historyPeriodFilter').addEventListener('change', (e) => { historyPeriodFilter = e.target.value; renderHistory(); });
 
 function clearHistoryFilters(){
-  historyEmployeeFilter = ''; historyYearFilter = ''; historySearchTerm = '';
+  historyEmployeeFilter = ''; historyYearFilter = ''; historyPeriodFilter = ''; historySearchTerm = '';
   document.getElementById('historyEmployeeFilter').value = '';
   document.getElementById('historyYearFilter').value = '';
+  document.getElementById('historyPeriodFilter').value = '';
   document.getElementById('historySearchBox').value = '';
   renderHistory();
 }
@@ -966,7 +1002,8 @@ function renderHistory(){
   const rows = HISTORY500
     .filter(r => !historySearchTerm || r.employee_name.toLowerCase().includes(historySearchTerm))
     .filter(r => !historyEmployeeFilter || r.employee_name === historyEmployeeFilter)
-    .filter(r => !historyYearFilter || (r.pay_date||'').startsWith(historyYearFilter));
+    .filter(r => !historyYearFilter || (r.pay_date||'').startsWith(historyYearFilter))
+    .filter(r => !historyPeriodFilter || String(r.period) === historyPeriodFilter);
 
   document.getElementById('historyRecCount').textContent = `${rows.length} of ${HISTORY500.length} records`;
 
@@ -995,7 +1032,7 @@ function renderHistory(){
         </div>
       </div>
       <div class="tbl-scroll">
-        <table class="rec-table">
+        <table class="rec-table history-table">
           <thead>${HISTORY_HEADER_ROW}</thead>
           <tbody>${recs.map(HISTORY_ROW_TEMPLATE).join('')}</tbody>
         </table>
