@@ -747,7 +747,7 @@ body {
   <div id="pay202View" style="display:none">
     <div class="card" style="margin-bottom:16px">
       <div class="card-body" style="font-size:11.5px;color:var(--text-3)">
-        Standard Pay = Rate \u00d7 Standard Hours &nbsp;\u00b7&nbsp; Overtime Pay = Rate \u00d7 1.25 \u00d7 OT Hours &nbsp;\u00b7&nbsp; Holiday Pay = Rate \u00d7 2.0 \u00d7 Holiday Hours &nbsp;\u00b7&nbsp; Vacation Pay = Rate \u00d7 1.0 \u00d7 Vacation Hours
+        Standard Pay = Rate × Standard Hours &nbsp;·&nbsp; Overtime Pay = Rate × 1.25 × OT Hours &nbsp;·&nbsp; Holiday Pay = Rate × 2.0 × Holiday Hours &nbsp;·&nbsp; Vacation Pay = Rate × 1.0 × Vacation Hours
       </div>
     </div>
     <div id="pay202Body"></div>
@@ -1317,7 +1317,7 @@ function renderTimesheet(){
 }
 
 /* ══════════════════════════════════════
-   EMPLOYEE 202 (computed pay: rate from Employee 201 \u00d7 hours from Timesheet)
+   EMPLOYEE 202 (computed pay: rate from Employee 201 × hours from Timesheet)
 ══════════════════════════════════════ */
 function populatePay202FilterOptions(){
   const empSel = document.getElementById('pay202EmployeeFilter');
