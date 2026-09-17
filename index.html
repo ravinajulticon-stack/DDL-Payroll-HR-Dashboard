@@ -1910,10 +1910,9 @@ function renderPay202(){
     // Applies universally regardless of currency -- basic_pay_rate is always the monthly salary.
     // Used for both absent-day deductions and overtime, keeping both consistent.
     const hourlyRate = basicRate * 12 / 52 / 40;
-    // Deduct absent hours at the same hourly rate: full pay minus (absentHours x hourlyRate).
-    // regularHours already includes paid leave hours, so only truly absent hours are deducted.
-    const absentHours = Math.max(0, standardHours - regularHours);
-    const nativeMonthlyPay = Math.max(0, basicRate - (absentHours * hourlyRate));
+    // Pay purely for hours worked/covered: hourlyRate x regularHours.
+    // regularHours already includes paid leave hours, so paid leave days contribute equally to worked days.
+    const nativeMonthlyPay = hourlyRate * regularHours;
     const overtimeNative = hourlyRate * OT_MULTIPLIER * totalOt;
 
     // Normalize everything to USD first: USD employees pass through; PHP employees convert using this period's rate.
