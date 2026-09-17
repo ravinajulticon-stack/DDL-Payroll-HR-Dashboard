@@ -536,16 +536,17 @@ body {
 .pay202-table th:nth-child(4), .pay202-table td:nth-child(4){ width:100px; }
 .pay202-table th:nth-child(5), .pay202-table td:nth-child(5){ width:100px; }
 .pay202-table th:nth-child(6), .pay202-table td:nth-child(6){ width:90px; }
-.pay202-table th:nth-child(7), .pay202-table td:nth-child(7){ width:90px; }
-.pay202-table th:nth-child(8), .pay202-table td:nth-child(8){ width:100px; }
-.pay202-table th:nth-child(9), .pay202-table td:nth-child(9){ width:110px; }
-.pay202-table th:nth-child(10), .pay202-table td:nth-child(10){ width:130px; }
-.pay202-table th:nth-child(11), .pay202-table td:nth-child(11){ width:100px; }
-.pay202-table th:nth-child(12), .pay202-table td:nth-child(12){ width:90px; }
-.pay202-table th:nth-child(13), .pay202-table td:nth-child(13){ width:100px; }
+.pay202-table th:nth-child(7), .pay202-table td:nth-child(7){ width:100px; }
+.pay202-table th:nth-child(8), .pay202-table td:nth-child(8){ width:90px; }
+.pay202-table th:nth-child(9), .pay202-table td:nth-child(9){ width:100px; }
+.pay202-table th:nth-child(10), .pay202-table td:nth-child(10){ width:110px; }
+.pay202-table th:nth-child(11), .pay202-table td:nth-child(11){ width:130px; }
+.pay202-table th:nth-child(12), .pay202-table td:nth-child(12){ width:100px; }
+.pay202-table th:nth-child(13), .pay202-table td:nth-child(13){ width:90px; }
 .pay202-table th:nth-child(14), .pay202-table td:nth-child(14){ width:100px; }
 .pay202-table th:nth-child(15), .pay202-table td:nth-child(15){ width:100px; }
-.pay202-table th:nth-child(16), .pay202-table td:nth-child(16){ width:120px; font-weight:700; color:var(--blue-light); }
+.pay202-table th:nth-child(16), .pay202-table td:nth-child(16){ width:100px; }
+.pay202-table th:nth-child(17), .pay202-table td:nth-child(17){ width:120px; font-weight:700; color:var(--blue-light); }
 .rec-table thead th{
   position:sticky; top:0; z-index:2;
   background:#2c2c2e; color:var(--text-3); text-transform:uppercase; letter-spacing:0.4px;
@@ -716,6 +717,7 @@ body {
                 <th>Employment Type</th>
                 <th>Status</th>
                 <th>Exit Date</th>
+                <th>Leave Payout</th>
                 <th>Work Email Address</th>
                 <th>SSS</th>
                 <th>SSS Amount (PHP)</th>
@@ -1030,6 +1032,16 @@ async function updateMoneyField(id, key, val){
   if(error){ alert('Could not save change: ' + error.message); return; }
 }
 
+// Read-only: shows the Annual Leave payout for an exited employee (native currency), computed live
+// from their Leave Balances seed. Blank if no exit date set; "Not set" if never seeded.
+function leavePayoutCell(rec){
+  if(!rec.exit_date) return '\u2014';
+  const payout = annualLeavePayoutNative(rec);
+  if(payout === null) return '<span style="color:var(--amber)" title="No Annual Leave balance on record for this employee">Not set</span>';
+  const symbol = rec.currency === 'USD' ? '$' : '\u20b1';
+  return `<span title="Annual Leave balance \u00d7 Basic Pay Rate as of exit date">${symbol}${fmtMoney(payout)}</span>`;
+}
+
 function currencySelect(rec){
   const opts = ['PHP', 'USD'];
   return `<select onchange="updateField('${rec.id}','currency',this.value)" style="min-width:60px">
@@ -1278,6 +1290,24 @@ function weekdaysInPeriod(periodStr){
   return days;
 }
 
+// Full calendar-day bounds of a pay period (11th of prior month through 10th of periodStr, inclusive),
+// weekends included — used to test whether an exit date falls within a given period.
+function periodBounds(periodStr){
+  const [y, m] = periodStr.split('-').map(Number);
+  const start = new Date(y, m - 2, 11);
+  const end = new Date(y, m - 1, 10);
+  return { start, end };
+}
+
+// So a resigned/terminated employee still appears in Employee 202 for their one final period
+// (where their leave payout lands), even though the default filter otherwise hides non-Active staff.
+function exitFallsInPeriod(emp, periodStr){
+  if(!emp.exit_date) return false;
+  const exitDate = new Date(emp.exit_date + 'T00:00:00');
+  const { start, end } = periodBounds(periodStr);
+  return exitDate >= start && exitDate <= end;
+}
+
 document.getElementById('tsGridPeriodInput').addEventListener('change', (e) => {
   if(e.target.value){ tsSelectedPeriod = e.target.value; renderTimesheetGrid(); }
 });
@@ -1489,22 +1519,39 @@ function monthlyAccrualSince(seedDate, asOf, rate){
   return Math.round(total * 100) / 100;
 }
 
-// Live current balance = seed + accrual since seeding - paid hours taken since seeding. null if never seeded.
-function currentLeaveBalance(employeeId, leaveType){
+// Balance as of a specific date = seed + accrual through that date - paid hours taken through that date.
+// null if never seeded. Used both for "today" (Leave Balances panel) and a fixed past date (exit payout).
+function leaveBalanceAsOf(employeeId, leaveType, asOfDate){
   const rec = balanceRecordFor(employeeId, leaveType);
   if(!rec) return null;
   const seedDate = new Date(rec.seed_date + 'T00:00:00');
-  const today = new Date();
   const rate = BALANCE_ACCRUAL_RATE[leaveType] || 0;
-  const accrued = monthlyAccrualSince(seedDate, today, rate);
+  const accrued = monthlyAccrualSince(seedDate, asOfDate, rate);
   const seedDateStr = rec.seed_date;
+  const asOfStr = `${asOfDate.getFullYear()}-${String(asOfDate.getMonth()+1).padStart(2,'0')}-${String(asOfDate.getDate()).padStart(2,'0')}`;
   let taken = 0;
   LEAVE_ENTRIES.forEach(l => {
-    if(l.employee_id === employeeId && l.leave_type === leaveType && l.leave_date > seedDateStr){
+    if(l.employee_id === employeeId && l.leave_type === leaveType && l.leave_date > seedDateStr && l.leave_date <= asOfStr){
       taken += parseFloat(l.hours) || 0;
     }
   });
   return Math.round((parseFloat(rec.seed_balance) + accrued - taken) * 100) / 100;
+}
+
+function currentLeaveBalance(employeeId, leaveType){
+  return leaveBalanceAsOf(employeeId, leaveType, new Date());
+}
+
+// Annual Leave remaining as of exit_date, converted to cash at Basic Pay Rate used directly as an
+// hourly rate (matching how Overtime already treats it). Returns 0 if not exited or balance is <= 0,
+// null if never seeded (can't compute a payout without a known balance).
+function annualLeavePayoutNative(emp){
+  if(!emp.exit_date) return 0;
+  const bal = leaveBalanceAsOf(emp.id, 'Annual Leave', new Date(emp.exit_date + 'T00:00:00'));
+  if(bal === null) return null;
+  if(bal <= 0) return 0;
+  const rate = parseFloat(emp.basic_pay_rate) || 0;
+  return Math.round(bal * rate * 100) / 100;
 }
 
 async function setLeaveBalance(employeeId, leaveType){
@@ -1639,7 +1686,7 @@ function renderLeavePanel(){
    EMPLOYEE 202 (Final Payout: Monthly Pay, Overtime & Maxicare linked; rest pending rules)
 ══════════════════════════════════════ */
 const PAY202_COLUMNS = [
-  'Monthly Pay', 'Home Office', 'Double Pay', 'Others (USD)', 'Overtime', 'Bank Fees',
+  'Monthly Pay', 'Home Office', 'Double Pay', 'Others (USD)', 'Overtime', 'Leave Payout', 'Bank Fees',
   'Total USD', 'Ebury USD/PHP', 'Note', 'Maxicare', 'SSS', '13th', 'Other (PHP)',
   'Total PHP', 'Total Payout'
 ];
@@ -1770,7 +1817,7 @@ function renderPay202(){
   if(rangeLabel) rangeLabel.textContent = fmtPeriodLabel(pay202SelectedPeriod + '-01');
 
   const employees = EMP201
-    .filter(e => !pay202StatusFilter || e.status === pay202StatusFilter)
+    .filter(e => !pay202StatusFilter || e.status === pay202StatusFilter || exitFallsInPeriod(e, pay202SelectedPeriod))
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -1816,6 +1863,14 @@ function renderPay202(){
     const monthlyPayUSD = currency === 'USD' ? nativeMonthlyPay : (rate ? nativeMonthlyPay / rate : null);
     const overtimeUSD = currency === 'USD' ? overtimeNative : (rate ? overtimeNative / rate : null);
 
+    // One-time Annual Leave payout, only in the specific period containing the employee's exit date.
+    let leavePayoutNative = 0;
+    if(exitFallsInPeriod(emp, pay202SelectedPeriod)){
+      const payout = annualLeavePayoutNative(emp);
+      leavePayoutNative = payout || 0;
+    }
+    const leavePayoutUSD = currency === 'USD' ? leavePayoutNative : (rate ? leavePayoutNative / rate : null);
+
     // Fixed per-employee amounts from Employee 201, applied only when the matching flag is ticked.
     const homeOfficeUSD = emp.home_office ? (parseFloat(emp.home_office_amount) || 0) : 0;
     const maxicare = parseFloat(emp.insurance_amount) || 0;
@@ -1828,8 +1883,8 @@ function renderPay202(){
     const thirteenth = pay202Val(emp.id, 'thirteenth') || 0;
     const otherPHP  = pay202Val(emp.id, 'other_php')  || 0;
 
-    const totalUSD = (monthlyPayUSD != null && overtimeUSD != null)
-      ? (monthlyPayUSD + homeOfficeUSD + doublePay + othersUSD + overtimeUSD + bankFees)
+    const totalUSD = (monthlyPayUSD != null && overtimeUSD != null && (leavePayoutNative === 0 || leavePayoutUSD != null))
+      ? (monthlyPayUSD + homeOfficeUSD + doublePay + othersUSD + overtimeUSD + (leavePayoutUSD || 0) + bankFees)
       : null;
     const eburyPHP = (totalUSD != null && rate) ? totalUSD * rate : null;
     const totalPHP = maxicare + sssPHP + thirteenth + otherPHP;
@@ -1841,6 +1896,7 @@ function renderPay202(){
       pay202MoneyCell(emp.id, 'double_pay'),            // Double Pay
       pay202MoneyCell(emp.id, 'others_usd'),            // Others (USD)
       overtimeUSD ? fmtMoney(overtimeUSD) : '\u2014',   // Overtime
+      leavePayoutUSD ? `<span title="Annual Leave payout on exit">${fmtMoney(leavePayoutUSD)}</span>` : '\u2014', // Leave Payout
       pay202MoneyCell(emp.id, 'bank_fees'),             // Bank Fees
       cell(totalUSD),                                   // Total USD
       cell(eburyPHP),                                   // Ebury USD/PHP
@@ -1865,7 +1921,7 @@ function renderPay202(){
 
   const blanks = (n) => Array(n).fill('<td></td>').join('');
   const footRow = `<tr class="pay202-total-row">
-    <td>Period Total</td>${blanks(6)}
+    <td>Period Total</td>${blanks(7)}
     <td>${fmtMoney(runTotals.totalUSD)}</td>
     <td>${fmtMoney(runTotals.eburyPHP)}</td>
     ${blanks(5)}
@@ -1906,7 +1962,7 @@ function render(){
 
   const tbody = document.getElementById('empBody');
   if(rows.length === 0){
-    tbody.innerHTML = `<tr><td colspan="18" style="text-align:center;color:var(--text-3);padding:24px">No employees match the current search/filters.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="19" style="text-align:center;color:var(--text-3);padding:24px">No employees match the current search/filters.</td></tr>`;
     return;
   }
 
@@ -1919,6 +1975,7 @@ function render(){
       <td>${typeSelect(rec)}</td>
       <td>${statusPillOrSelect(rec)}</td>
       <td>${field(rec,'exit_date','','date')}</td>
+      <td>${leavePayoutCell(rec)}</td>
       <td>${field(rec,'pagibig','name@company.com','email')}</td>
       <td style="text-align:center"><input type="checkbox" ${rec.sss_enrolled?'checked':''} onchange="toggleSss('${rec.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;min-width:0"></td>
       <td>${moneyField(rec,'sss_amount','Amount')}</td>
