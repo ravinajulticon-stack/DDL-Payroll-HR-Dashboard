@@ -1435,6 +1435,13 @@ function pay202MoneyCell(employeeId, key){
     onkeydown="if(event.key==='Enter') this.blur()">`;
 }
 
+function pay202MonthlyPayCell(val, regularHours, standardHours){
+  if(val == null) return '\u2014';
+  const short = standardHours > 0 && regularHours < standardHours;
+  const title = `${fmtHrs(regularHours)} of ${standardHours} standard hrs this period`;
+  return `<span title="${title}"${short ? ' style="color:var(--amber)"' : ''}>${fmtMoney(val)}</span>`;
+}
+
 function pay202NoteCell(employeeId){
   const e = pay202EntryFor(employeeId);
   const val = (e && e.note ? e.note : '').toString().replace(/"/g,'&quot;');
@@ -1477,19 +1484,26 @@ function renderPay202(){
     const basicRate = parseFloat(emp.basic_pay_rate) || 0;
     const currency = emp.currency || 'PHP';
 
-    // Overtime hours this period, from Timesheet (hours over 8 on any day).
+    // Overtime hours (hours over 8 on any day) and regular hours actually worked (capped at 8/day;
+    // a weekday with no timesheet entry counts as unpaid/absent until the Leave tab exists).
     let totalOt = 0;
+    let regularHours = 0;
     days.forEach(d => {
       const entry = TIMESHEET_ENTRIES.find(t => t.employee_id === emp.id && t.work_date === d.date);
       if(entry){
         const hrs = parseFloat(entry.hours_worked) || 0;
+        regularHours += Math.min(hrs, 8);
         if(hrs > 8) totalOt += (hrs - 8);
       }
     });
+    const standardHours = days.length * 8;
+    // Capped at 100% so attendance can only reduce Monthly Pay, never inflate it — extra hours are Overtime, not this.
+    const attendanceFactor = standardHours > 0 ? Math.min(regularHours / standardHours, 1) : 0;
+    const nativeMonthlyPay = basicRate * attendanceFactor;
     const overtimeNative = basicRate * OT_MULTIPLIER * totalOt;
 
     // Normalize everything to USD first: USD employees pass through; PHP employees convert using this period's rate.
-    const monthlyPayUSD = currency === 'USD' ? basicRate : (rate ? basicRate / rate : null);
+    const monthlyPayUSD = currency === 'USD' ? nativeMonthlyPay : (rate ? nativeMonthlyPay / rate : null);
     const overtimeUSD = currency === 'USD' ? overtimeNative : (rate ? overtimeNative / rate : null);
 
     // Fixed per-employee amounts from Employee 201, applied only when the matching flag is ticked.
@@ -1512,7 +1526,7 @@ function renderPay202(){
     const totalPayout = (eburyPHP != null) ? eburyPHP + totalPHP : null;
 
     const cells = [
-      cell(monthlyPayUSD),                              // Monthly Pay
+      pay202MonthlyPayCell(monthlyPayUSD, regularHours, standardHours), // Monthly Pay
       homeOfficeUSD ? fmtMoney(homeOfficeUSD) : '\u2014', // Home Office
       pay202MoneyCell(emp.id, 'double_pay'),            // Double Pay
       pay202MoneyCell(emp.id, 'others_usd'),            // Others (USD)
