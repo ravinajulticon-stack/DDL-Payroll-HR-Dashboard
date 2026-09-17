@@ -746,6 +746,10 @@ body {
           <label class="wk-label" style="display:block;margin-bottom:4px">Pay Period (cutoff 11th&ndash;10th)</label>
           <input type="month" class="search-box" id="pay202PeriodInput" style="min-width:160px">
         </div>
+        <div>
+          <label class="wk-label" style="display:block;margin-bottom:4px">Ebury Conversion Rate (this period, PHP per USD)</label>
+          <input type="text" inputmode="decimal" class="search-box" id="pay202EburyRateInput" placeholder="e.g. 58.50" style="width:140px">
+        </div>
         <span class="rec-count" id="pay202RangeLabel"></span>
       </div>
     </div>
@@ -790,6 +794,7 @@ const VACATION_MULTIPLIER = 1.0;
 let currentView = 'overview';
 let historyLoaded = false;
 let timesheetEntriesLoaded = false;
+let pay202EburyRateLoaded = false;
 function switchView(view, btn){
   currentView = view;
   document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
@@ -810,13 +815,18 @@ function switchView(view, btn){
   document.getElementById('pay202FilterBar').style.display = view === 'pay202' ? 'flex' : 'none';
   if(view === 'overview') renderKpis();
   if((view === 'detail' || view === 'history') && !historyLoaded){ historyLoaded = true; loadHistory(); }
-  if(view === 'timesheet' && !timesheetEntriesLoaded){
+  if((view === 'timesheet' || view === 'pay202') && !timesheetEntriesLoaded){
     timesheetEntriesLoaded = true;
     loadTimesheetEntries();
   } else if(view === 'timesheet'){
     renderTimesheetGrid();
   }
-  if(view === 'pay202') renderPay202();
+  if(view === 'pay202' && !pay202EburyRateLoaded){
+    pay202EburyRateLoaded = true;
+    loadPay202EburyRate();
+  } else if(view === 'pay202'){
+    renderPay202();
+  }
 }
 
 function renderKpis(){
@@ -1191,6 +1201,7 @@ async function loadTimesheetEntries(){
   if(error){ alert('Could not load timesheet entries: ' + error.message); return; }
   TIMESHEET_ENTRIES = data;
   renderTimesheetGrid();
+  renderPay202();
 }
 
 // Every Mon\u2013Fri between the 11th of the prior month and the 10th of periodStr ('YYYY-MM', the pay month).
@@ -1310,20 +1321,51 @@ function renderTimesheetGrid(){
 }
 
 /* ══════════════════════════════════════
-   EMPLOYEE 202 (Final Payout layout — structure only for now, amounts to follow)
+   EMPLOYEE 202 (Final Payout: Monthly Pay, Overtime & Maxicare linked; rest pending rules)
 ══════════════════════════════════════ */
 const PAY202_COLUMNS = [
   'Monthly Pay', 'Home Office', 'Double Pay', 'Others (USD)', 'Overtime', 'Bank Fees',
   'Total USD', 'Ebury USD/PHP', 'Note', 'Maxicare', 'SSS', '13th', 'Other (PHP)',
   'Total PHP', 'Total Payout'
 ];
+let pay202EburyRate = null; // this period's PHP-per-USD rate; null until entered
 
 document.getElementById('pay202PeriodInput').addEventListener('change', (e) => {
-  if(e.target.value){ pay202SelectedPeriod = e.target.value; renderPay202(); }
+  if(e.target.value){ pay202SelectedPeriod = e.target.value; loadPay202EburyRate(); }
 });
 document.getElementById('pay202StatusFilter').addEventListener('change', (e) => {
   pay202StatusFilter = e.target.value; renderPay202();
 });
+document.getElementById('pay202EburyRateInput').addEventListener('change', (e) => {
+  savePay202EburyRate(e.target.value);
+});
+
+async function loadPay202EburyRate(){
+  const periodMonth = pay202SelectedPeriod + '-01';
+  const { data, error } = await sb.from('pay202_period_rates').select('*').eq('period_month', periodMonth).maybeSingle();
+  if(error){ alert('Could not load Ebury rate: ' + error.message); }
+  pay202EburyRate = (data && data.ebury_rate != null) ? parseFloat(data.ebury_rate) : null;
+  renderPay202();
+}
+
+async function savePay202EburyRate(val){
+  const trimmed = (val || '').toString().trim();
+  const periodMonth = pay202SelectedPeriod + '-01';
+  if(trimmed === ''){
+    pay202EburyRate = null;
+    const { error } = await sb.from('pay202_period_rates').delete().eq('period_month', periodMonth);
+    if(error){ alert('Could not clear Ebury rate: ' + error.message); }
+    renderPay202();
+    return;
+  }
+  const num = parseFloat(trimmed);
+  if(isNaN(num)){ alert('Please enter a valid rate.'); renderPay202(); return; }
+  pay202EburyRate = num;
+  const { error } = await sb.from('pay202_period_rates')
+    .upsert({ period_month: periodMonth, ebury_rate: num, updated_at: new Date().toISOString() }, { onConflict: 'period_month' });
+  if(error){ alert('Could not save Ebury rate: ' + error.message); return; }
+  renderPay202();
+}
 
 function renderPay202(){
   const container = document.getElementById('pay202Body');
@@ -1331,6 +1373,9 @@ function renderPay202(){
 
   const periodInput = document.getElementById('pay202PeriodInput');
   if(!periodInput.value) periodInput.value = pay202SelectedPeriod;
+
+  const rateInput = document.getElementById('pay202EburyRateInput');
+  rateInput.value = pay202EburyRate != null ? pay202EburyRate : '';
 
   const rangeLabel = document.getElementById('pay202RangeLabel');
   if(rangeLabel) rangeLabel.textContent = fmtPeriodLabel(pay202SelectedPeriod + '-01');
@@ -1345,10 +1390,56 @@ function renderPay202(){
     return;
   }
 
+  const rate = pay202EburyRate;
+  const days = weekdaysInPeriod(pay202SelectedPeriod);
+  const cell = (val) => val == null ? '\u2014' : fmtMoney(val);
+
   const headerCells = PAY202_COLUMNS.map(c => `<th>${c}</th>`).join('');
   const bodyRows = employees.map(emp => {
-    const placeholderCells = PAY202_COLUMNS.map(() => `<td>\u2014</td>`).join('');
-    return `<tr><td>${emp.name}</td>${placeholderCells}</tr>`;
+    const basicRate = parseFloat(emp.basic_pay_rate) || 0;
+    const currency = emp.currency || 'PHP';
+
+    // Overtime hours this period, from Timesheet (hours over 8 on any day).
+    let totalOt = 0;
+    days.forEach(d => {
+      const entry = TIMESHEET_ENTRIES.find(t => t.employee_id === emp.id && t.work_date === d.date);
+      if(entry){
+        const hrs = parseFloat(entry.hours_worked) || 0;
+        if(hrs > 8) totalOt += (hrs - 8);
+      }
+    });
+    const overtimeNative = basicRate * OT_MULTIPLIER * totalOt;
+
+    // Normalize everything to USD first: USD employees pass through; PHP employees convert using this period's rate.
+    const monthlyPayUSD = currency === 'USD' ? basicRate : (rate ? basicRate / rate : null);
+    const overtimeUSD = currency === 'USD' ? overtimeNative : (rate ? overtimeNative / rate : null);
+
+    const maxicare = parseFloat(emp.insurance_amount) || 0;
+
+    const totalUSD = (monthlyPayUSD != null && overtimeUSD != null) ? (monthlyPayUSD + overtimeUSD) : null;
+    const eburyPHP = (totalUSD != null && rate) ? totalUSD * rate : null;
+    const totalPHP = maxicare;
+    const totalPayout = (eburyPHP != null) ? eburyPHP + totalPHP : null;
+
+    const cells = [
+      cell(monthlyPayUSD),                          // Monthly Pay
+      '\u2014',                                     // Home Office
+      '\u2014',                                     // Double Pay
+      '\u2014',                                     // Others (USD)
+      cell(overtimeUSD),                            // Overtime
+      '\u2014',                                     // Bank Fees
+      cell(totalUSD),                               // Total USD
+      cell(eburyPHP),                               // Ebury USD/PHP
+      '\u2014',                                     // Note
+      maxicare ? fmtMoney(maxicare) : '\u2014',     // Maxicare
+      '\u2014',                                     // SSS
+      '\u2014',                                     // 13th
+      '\u2014',                                     // Other (PHP)
+      totalPHP ? fmtMoney(totalPHP) : '\u2014',     // Total PHP
+      cell(totalPayout)                             // Total Payout
+    ];
+
+    return `<tr><td>${emp.name}</td>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
   }).join('');
 
   container.innerHTML = `
