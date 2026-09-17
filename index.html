@@ -535,7 +535,6 @@ body {
   <div class="seg-ctrl">
     <button class="seg-btn active" onclick="switchView('overview',this)">Overview</button>
     <button class="seg-btn" onclick="switchView('detail',this)">Employee 201</button>
-    <button class="seg-btn" onclick="switchView('pay',this)">Employee 202</button>
   </div>
   <div class="toolbar-sep"></div>
   <input type="text" class="search-box" id="searchBox" placeholder="Search employees…" style="display:none">
@@ -570,34 +569,13 @@ body {
                 <th>Pag-IBIG No.</th>
                 <th>SSS</th>
                 <th>Insurance</th>
+                <th>Basic Pay Rate</th>
+                <th>Latest Total Payout</th>
+                <th>Latest Pay Date</th>
                 <th></th>
               </tr>
             </thead>
             <tbody id="empBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- EMPLOYEE 202 (PAY SNAPSHOT) -->
-  <div id="payView" style="display:none">
-    <div class="card">
-      <div class="card-body" style="padding:0">
-        <div class="tbl-scroll" style="max-height:calc(100vh - 170px)">
-          <table class="rec-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Position / Role</th>
-                <th>Department</th>
-                <th>Status</th>
-                <th>Basic Pay Rate</th>
-                <th>Latest Total Payout</th>
-                <th>Latest Pay Date</th>
-              </tr>
-            </thead>
-            <tbody id="payBody"></tbody>
           </table>
         </div>
       </div>
@@ -629,12 +607,10 @@ function switchView(view, btn){
   btn.classList.add('active');
   document.getElementById('overviewView').style.display = view === 'overview' ? 'block' : 'none';
   document.getElementById('detailView').style.display = view === 'detail' ? 'block' : 'none';
-  document.getElementById('payView').style.display = view === 'pay' ? 'block' : 'none';
   document.getElementById('searchBox').style.display = view === 'detail' ? 'inline-block' : 'none';
   document.getElementById('recCount').style.display = view === 'detail' ? 'inline' : 'none';
   document.getElementById('addEmpBtn').style.display = view === 'detail' ? 'inline-block' : 'none';
   if(view === 'overview') renderKpis();
-  if(view === 'pay') renderPayTable();
 }
 
 function renderKpis(){
@@ -719,26 +695,6 @@ function insuranceSelect(rec){
   </select>`;
 }
 
-function renderPayTable(){
-  const rows = EMP201.slice().sort((a,b) => a.name.localeCompare(b.name));
-  const tbody = document.getElementById('payBody');
-  if(rows.length === 0){
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-3);padding:24px">No employees on file.</td></tr>`;
-    return;
-  }
-  tbody.innerHTML = rows.map(rec => `
-    <tr>
-      <td style="font-weight:600;color:var(--text)">${rec.name}</td>
-      <td>${rec.role || '—'}</td>
-      <td>${rec.department || '—'}</td>
-      <td><span class="status-pill ${(rec.status||'').toLowerCase()}">${rec.status||'—'}</span></td>
-      <td>${field(rec,'basic_pay_rate','Rate','number')}</td>
-      <td>${field(rec,'latest_total_payout','Total Payout','number')}</td>
-      <td>${field(rec,'latest_pay_date','','date')}</td>
-    </tr>
-  `).join('');
-}
-
 function statusPillOrSelect(rec){
   return `<select onchange="updateField('${rec.id}','status',this.value)">
     ${STATUS_OPTIONS.map(s => `<option ${rec.status===s?'selected':''}>${s}</option>`).join('')}
@@ -786,7 +742,7 @@ function render(){
 
   const tbody = document.getElementById('empBody');
   if(rows.length === 0){
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--text-3);padding:24px">No employees match "${searchTerm}".</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;color:var(--text-3);padding:24px">No employees match "${searchTerm}".</td></tr>`;
     return;
   }
 
@@ -801,6 +757,9 @@ function render(){
       <td>${field(rec,'pagibig','Pag-IBIG No.')}</td>
       <td style="text-align:center"><input type="checkbox" ${rec.sss_enrolled?'checked':''} onchange="toggleSss('${rec.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;min-width:0"></td>
       <td>${insuranceSelect(rec)}</td>
+      <td>${field(rec,'basic_pay_rate','Rate','number')}</td>
+      <td>${field(rec,'latest_total_payout','Total Payout','number')}</td>
+      <td>${field(rec,'latest_pay_date','','date')}</td>
       <td><button class="del-btn" title="Remove" onclick="deleteEmployee('${rec.id}')">✕</button></td>
     </tr>
   `).join('');
