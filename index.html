@@ -689,7 +689,9 @@ body {
                 <th>Status</th>
                 <th>Work Email Address</th>
                 <th>SSS</th>
+                <th>HO</th>
                 <th>Insurance</th>
+                <th>Insurance Amount (PHP)</th>
                 <th>Basic Pay Rate</th>
                 <th>Latest Total Payout</th>
                 <th>Latest Pay Date</th>
@@ -932,6 +934,14 @@ async function toggleSss(id, checked){
   const { error } = await sb.from('employees_201').update({ sss_enrolled: checked }).eq('id', id);
   if(error){ alert('Could not save change: ' + error.message); return; }
   renderKpis();
+}
+
+async function toggleHomeOffice(id, checked){
+  const rec = EMP201.find(r => r.id === id);
+  if(!rec) return;
+  rec.home_office = checked;
+  const { error } = await sb.from('employees_201').update({ home_office: checked }).eq('id', id);
+  if(error){ alert('Could not save change: ' + error.message); return; }
 }
 
 function insuranceSelect(rec){
@@ -1452,7 +1462,9 @@ function render(){
       <td>${statusPillOrSelect(rec)}</td>
       <td>${field(rec,'pagibig','name@company.com','email')}</td>
       <td style="text-align:center"><input type="checkbox" ${rec.sss_enrolled?'checked':''} onchange="toggleSss('${rec.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;min-width:0"></td>
+      <td style="text-align:center"><input type="checkbox" ${rec.home_office?'checked':''} onchange="toggleHomeOffice('${rec.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;min-width:0"></td>
       <td>${insuranceSelect(rec)}</td>
+      <td>${moneyField(rec,'insurance_amount','Amount')}</td>
       <td><div style="display:flex;gap:4px;align-items:center">${currencySelect(rec)}${moneyField(rec,'basic_pay_rate','Rate')}</div></td>
       <td>${moneyField(rec,'latest_total_payout','Total Payout')}</td>
       <td>${field(rec,'latest_pay_date','','date')}</td>
