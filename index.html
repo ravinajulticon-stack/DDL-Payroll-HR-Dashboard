@@ -1724,6 +1724,8 @@ const PAY202_COLUMNS = [
   'Total USD', 'Ebury USD/PHP', 'Note', 'Maxicare', 'SSS', '13th', 'Other (PHP)',
   'Total PHP', 'Total Payout'
 ];
+// Fixed, non-editable: every employee incurs a flat $5 USD bank fee every period.
+const BANK_FEE_USD = 5;
 let pay202EburyRate = null; // this period's PHP-per-USD rate; null until entered
 let PAY202_ENTRIES = [];    // manual per-employee figures for the selected period
 
@@ -1919,7 +1921,7 @@ function renderPay202(){
     // Manual per-period figures.
     const doublePay = pay202Val(emp.id, 'double_pay') || 0;
     const othersUSD = pay202Val(emp.id, 'others_usd') || 0;
-    const bankFees  = pay202Val(emp.id, 'bank_fees')  || 0;
+    const bankFees  = BANK_FEE_USD;
     const thirteenth = pay202Val(emp.id, 'thirteenth') || 0;
     const otherPHP  = pay202Val(emp.id, 'other_php')  || 0;
 
@@ -1937,7 +1939,7 @@ function renderPay202(){
       pay202MoneyCell(emp.id, 'others_usd'),            // Others (USD)
       overtimeUSD ? fmtMoney(overtimeUSD) : '\u2014',   // Overtime
       leavePayoutUSD ? `<span title="Annual Leave payout on exit">${fmtMoney(leavePayoutUSD)}</span>` : '\u2014', // Leave Payout
-      pay202MoneyCell(emp.id, 'bank_fees'),             // Bank Fees
+      fmtMoney(bankFees),                               // Bank Fees (fixed $5, non-editable)
       cell(totalUSD),                                   // Total USD
       cell(eburyPHP),                                   // Ebury USD/PHP
       pay202NoteCell(emp.id),                           // Note
@@ -1955,7 +1957,7 @@ function renderPay202(){
     runTotals.totalPayout += totalPayout || 0;
     if(totalPayout != null) runTotals.counted++;
 
-    const hasManualEntry = !!(doublePay || othersUSD || bankFees || thirteenth || otherPHP || (pay202EntryFor(emp.id) && pay202EntryFor(emp.id).note));
+    const hasManualEntry = !!(doublePay || othersUSD || thirteenth || otherPHP || (pay202EntryFor(emp.id) && pay202EntryFor(emp.id).note));
     return `<tr${hasManualEntry ? ' class="pay202-has-entry"' : ''}><td>${emp.name}${hasManualEntry ? ' <span class="pay202-entry-dot" title="Has manual entries this period"></span>' : ''}</td>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
   }).join('');
 
