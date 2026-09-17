@@ -544,6 +544,25 @@ body {
   </div>
 </div>
 
+<!-- FILTER BAR -->
+<div class="toolbar" id="filterBar" style="display:none">
+  <span class="wk-label">Filter by:</span>
+  <select class="wk-sel" id="filterDept"><option value="">All Departments</option></select>
+  <select class="wk-sel" id="filterStatus">
+    <option value="">All Statuses</option>
+    <option value="Active">Active</option>
+    <option value="Resigned">Resigned</option>
+    <option value="Terminated">Terminated</option>
+  </select>
+  <select class="wk-sel" id="filterType">
+    <option value="">All Employment Types</option>
+    <option value="Regular">Regular</option>
+    <option value="Probationary">Probationary</option>
+    <option value="Contractual">Contractual</option>
+  </select>
+  <button class="io-btn" onclick="clearFilters()">Clear Filters</button>
+</div>
+
 <!-- MAIN -->
 <div class="main">
 
@@ -595,6 +614,9 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const SEED = JSON.parse(document.getElementById('seed-data').textContent);
 let EMP201 = [];
 let searchTerm = '';
+let filterDept = '';
+let filterStatus = '';
+let filterType = '';
 
 const STATUS_OPTIONS = ['Active', 'Resigned', 'Terminated'];
 const TYPE_OPTIONS = ['Regular', 'Probationary', 'Contractual'];
@@ -610,6 +632,7 @@ function switchView(view, btn){
   document.getElementById('searchBox').style.display = view === 'detail' ? 'inline-block' : 'none';
   document.getElementById('recCount').style.display = view === 'detail' ? 'inline' : 'none';
   document.getElementById('addEmpBtn').style.display = view === 'detail' ? 'inline-block' : 'none';
+  document.getElementById('filterBar').style.display = view === 'detail' ? 'flex' : 'none';
   if(view === 'overview') renderKpis();
 }
 
@@ -659,8 +682,30 @@ async function loadEmployees(){
   const { data, error } = await sb.from('employees_201').select('*').order('name');
   if(error){ alert('Could not load employees: ' + error.message); return; }
   EMP201 = data;
+  populateFilterOptions();
   render();
   renderKpis();
+}
+
+function populateFilterOptions(){
+  const sel = document.getElementById('filterDept');
+  const current = sel.value;
+  const depts = [...new Set(EMP201.map(r => r.department).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">All Departments</option>' + depts.map(d => `<option value="${d}">${d}</option>`).join('');
+  sel.value = current && depts.includes(current) ? current : '';
+}
+
+document.getElementById('filterDept').addEventListener('change', (e) => { filterDept = e.target.value; render(); });
+document.getElementById('filterStatus').addEventListener('change', (e) => { filterStatus = e.target.value; render(); });
+document.getElementById('filterType').addEventListener('change', (e) => { filterType = e.target.value; render(); });
+
+function clearFilters(){
+  filterDept = ''; filterStatus = ''; filterType = ''; searchTerm = '';
+  document.getElementById('filterDept').value = '';
+  document.getElementById('filterStatus').value = '';
+  document.getElementById('filterType').value = '';
+  document.getElementById('searchBox').value = '';
+  render();
 }
 
 function field(rec, key, placeholder='', type='text'){
@@ -736,13 +781,16 @@ document.getElementById('searchBox').addEventListener('input', (e) => {
 function render(){
   const rows = EMP201
     .filter(r => !searchTerm || r.name.toLowerCase().includes(searchTerm))
+    .filter(r => !filterDept || r.department === filterDept)
+    .filter(r => !filterStatus || r.status === filterStatus)
+    .filter(r => !filterType || r.employment_type === filterType)
     .sort((a,b) => a.name.localeCompare(b.name));
 
   document.getElementById('recCount').textContent = `${rows.length} of ${EMP201.length} employee${EMP201.length!==1?'s':''}`;
 
   const tbody = document.getElementById('empBody');
   if(rows.length === 0){
-    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;color:var(--text-3);padding:24px">No employees match "${searchTerm}".</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;color:var(--text-3);padding:24px">No employees match the current search/filters.</td></tr>`;
     return;
   }
 
