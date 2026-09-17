@@ -1405,6 +1405,11 @@ function renderTimesheetGrid(){
     return `<tr><td>${emp.name}</td><td class="ts-total-col">${fmtHrs(totalHours)}</td><td class="ts-total-col">${fmtHrs(totalOt)}</td>${cells}</tr>`;
   }).join('');
 
+  // Save horizontal scroll position before replacing innerHTML, restore after — prevents the grid
+  // snapping back to Aug 11 when the user types a value while scrolled right.
+  const existingScroll = container.querySelector('.tbl-scroll');
+  const savedScrollLeft = existingScroll ? existingScroll.scrollLeft : 0;
+
   container.innerHTML = `
     <div class="card">
       <div class="card-body" style="padding:0">
@@ -1416,6 +1421,11 @@ function renderTimesheetGrid(){
         </div>
       </div>
     </div>`;
+
+  if(savedScrollLeft > 0){
+    const newScroll = container.querySelector('.tbl-scroll');
+    if(newScroll) newScroll.scrollLeft = savedScrollLeft;
+  }
 }
 
 /* ══════════════════════════════════════
