@@ -512,6 +512,12 @@ body {
 .ts-grid-table td.ts-weekend{ background:rgba(255,255,255,0.02); }
 .ts-grid-day-name{ display:block; font-size:8.5px; color:var(--text-3); text-transform:uppercase; }
 .ts-grid-day-num{ display:block; font-size:11px; }
+.ts-grid-table th.ts-total-col, .ts-grid-table td.ts-total-col{ width:80px; min-width:80px; font-weight:700; color:var(--blue-light); }
+.ts-grid-table td.ts-total-col{ position:sticky; left:180px; z-index:1; background:var(--surface-1); }
+.ts-grid-table th.ts-total-col{ position:sticky; z-index:3; background:#2c2c2e; }
+.ts-grid-table th.ts-total-col:nth-child(2), .ts-grid-table td.ts-total-col:nth-child(2){ left:180px; }
+.ts-grid-table th.ts-total-col:nth-child(3), .ts-grid-table td.ts-total-col:nth-child(3){ left:260px; }
+.ts-grid-table tbody tr:hover td.ts-total-col{ background:#323234; }
 .pay202-table{ table-layout:fixed; width:max-content; }
 .pay202-table th, .pay202-table td{ box-sizing:border-box; }
 .pay202-table th:nth-child(1), .pay202-table td:nth-child(1){ width:180px; }
@@ -1222,17 +1228,37 @@ document.getElementById('tsStatusFilter').addEventListener('change', (e) => {
   tsStatusFilter = e.target.value; renderTimesheetGrid();
 });
 
+function fmtHrs(n){
+  const rounded = Math.round(n * 100) / 100;
+  if(rounded === 0) return '\u2014';
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded.toFixed(2)).replace(/0+$/,'').replace(/\.$/,'');
+}
+
 async function updateTimesheetHours(employeeId, workDate, hours){
-  const num = parseFloat(hours);
-  const hoursWorked = isNaN(num) ? 8 : num;
+  const trimmed = (hours || '').toString().trim();
   const existing = TIMESHEET_ENTRIES.find(t => t.employee_id === employeeId && t.work_date === workDate);
+
+  if(trimmed === ''){
+    if(existing){
+      const { error } = await sb.from('timesheet_entries').delete().eq('id', existing.id);
+      if(error){ alert('Could not clear hours: ' + error.message); return; }
+      TIMESHEET_ENTRIES = TIMESHEET_ENTRIES.filter(t => t.id !== existing.id);
+    }
+    renderTimesheetGrid();
+    return;
+  }
+
+  const num = parseFloat(trimmed);
+  if(isNaN(num)){ alert('Please enter a valid number of hours.'); renderTimesheetGrid(); return; }
+
   const { data, error } = await sb.from('timesheet_entries')
-    .upsert({ employee_id: employeeId, work_date: workDate, hours_worked: hoursWorked, updated_at: new Date().toISOString() }, { onConflict: 'employee_id,work_date' })
+    .upsert({ employee_id: employeeId, work_date: workDate, hours_worked: num, updated_at: new Date().toISOString() }, { onConflict: 'employee_id,work_date' })
     .select();
   if(error){ alert('Could not save hours: ' + error.message); return; }
   const saved = data[0];
   if(existing) Object.assign(existing, saved);
   else TIMESHEET_ENTRIES.push(saved);
+  renderTimesheetGrid();
 }
 
 function renderTimesheetGrid(){
@@ -1259,12 +1285,18 @@ function renderTimesheetGrid(){
   const headerCells = days.map(d => `<th><span class="ts-grid-day-name">${d.dayName}</span><span class="ts-grid-day-num">${d.monthShort} ${d.dayNum}</span></th>`).join('');
 
   const bodyRows = employees.map(emp => {
+    let totalHours = 0, totalOt = 0;
     const cells = days.map(d => {
       const entry = TIMESHEET_ENTRIES.find(t => t.employee_id === emp.id && t.work_date === d.date);
-      const val = entry ? entry.hours_worked : 8;
-      return `<td><input type="number" step="0.5" min="0" value="${val}" onchange="updateTimesheetHours('${emp.id}','${d.date}',this.value)"></td>`;
+      const hrs = entry ? (parseFloat(entry.hours_worked) || 0) : 0;
+      if(entry){
+        totalHours += hrs;
+        if(hrs > 8) totalOt += (hrs - 8);
+      }
+      const val = entry ? entry.hours_worked : '';
+      return `<td><input type="number" step="0.5" min="0" placeholder="—" value="${val}" onchange="updateTimesheetHours('${emp.id}','${d.date}',this.value)"></td>`;
     }).join('');
-    return `<tr><td>${emp.name}</td>${cells}</tr>`;
+    return `<tr><td>${emp.name}</td><td class="ts-total-col">${fmtHrs(totalHours)}</td><td class="ts-total-col">${fmtHrs(totalOt)}</td>${cells}</tr>`;
   }).join('');
 
   container.innerHTML = `
@@ -1272,7 +1304,7 @@ function renderTimesheetGrid(){
       <div class="card-body" style="padding:0">
         <div class="tbl-scroll" style="max-height:calc(100vh - 230px)">
           <table class="rec-table ts-grid-table">
-            <thead><tr><th>Employee</th>${headerCells}</tr></thead>
+            <thead><tr><th>Employee</th><th class="ts-total-col">Total Hrs</th><th class="ts-total-col">Total OT</th>${headerCells}</tr></thead>
             <tbody>${bodyRows}</tbody>
           </table>
         </div>
