@@ -1912,7 +1912,7 @@ function renderPay202(){
     const hourlyRate = basicRate * 12 / 52 / 40;
     // Pay purely for hours worked/covered: hourlyRate x regularHours.
     // regularHours already includes paid leave hours, so paid leave days contribute equally to worked days.
-    const nativeMonthlyPay = hourlyRate * regularHours;
+    const nativeMonthlyPay = Math.min(hourlyRate * regularHours, basicRate);
     const overtimeNative = hourlyRate * OT_MULTIPLIER * totalOt;
 
     // Normalize everything to USD first: USD employees pass through; PHP employees convert using this period's rate.
