@@ -621,7 +621,7 @@ body {
   <select class="wk-sel" id="filterRole"><option value="">All Roles</option></select>
   <select class="wk-sel" id="filterStatus">
     <option value="">All Statuses</option>
-    <option value="Active">Active</option>
+    <option value="Active" selected>Active</option>
     <option value="Resigned">Resigned</option>
     <option value="Terminated">Terminated</option>
   </select>
@@ -801,13 +801,13 @@ let HISTORY500 = [];
 let searchTerm = '';
 let historySearchTerm = '';
 let historyEmployeeFilter = '';
-let historyYearFilter = '';
+let historyYearFilter = '2026';
 let historyPeriodFilter = '';
 let pay202SelectedPeriod = '2026-09';
 let pay202StatusFilter = 'Active';
 let filterDept = '';
 let filterRole = '';
-let filterStatus = '';
+let filterStatus = 'Active';
 let filterType = '';
 let filterInsurance = '';
 let filterSss = '';
@@ -1088,10 +1088,9 @@ function populateHistoryFilterOptions(){
   empSel.value = currentEmp && emps.includes(currentEmp) ? currentEmp : '';
 
   const yearSel = document.getElementById('historyYearFilter');
-  const currentYear = yearSel.value;
   const years = [...new Set(HISTORY500.map(r => (r.pay_date||'').slice(0,4)).filter(Boolean))].sort().reverse();
   yearSel.innerHTML = '<option value="">All Years</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
-  yearSel.value = currentYear && years.includes(currentYear) ? currentYear : '';
+  yearSel.value = years.includes(historyYearFilter) ? historyYearFilter : '';
 }
 
 document.getElementById('historyEmployeeFilter').addEventListener('change', (e) => { historyEmployeeFilter = e.target.value; renderHistory(); });
