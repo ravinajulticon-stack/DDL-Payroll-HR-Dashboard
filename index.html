@@ -503,15 +503,15 @@ body {
 .history-table th:nth-child(14), .history-table td:nth-child(14){ width:120px; }
 .history-table th:nth-child(15), .history-table td:nth-child(15){ width:80px; }
 .history-table th:nth-child(16), .history-table td:nth-child(16){ width:160px; }
-.timesheet-table{ table-layout:fixed; width:max-content; }
-.timesheet-table th, .timesheet-table td{ box-sizing:border-box; }
-.timesheet-table th:nth-child(1), .timesheet-table td:nth-child(1){ width:180px; }
-.timesheet-table th:nth-child(2), .timesheet-table td:nth-child(2){ width:110px; }
-.timesheet-table th:nth-child(3), .timesheet-table td:nth-child(3){ width:110px; }
-.timesheet-table th:nth-child(4), .timesheet-table td:nth-child(4){ width:110px; }
-.timesheet-table th:nth-child(5), .timesheet-table td:nth-child(5){ width:110px; }
-.timesheet-table th:nth-child(6), .timesheet-table td:nth-child(6){ width:200px; }
-.timesheet-table th:nth-child(7), .timesheet-table td:nth-child(7){ width:60px; }
+.ts-grid-table{ table-layout:fixed; width:max-content; border-collapse:collapse; }
+.ts-grid-table th, .ts-grid-table td{ box-sizing:border-box; }
+.ts-grid-table th:first-child, .ts-grid-table td:first-child{ width:180px; min-width:180px; }
+.ts-grid-table th:not(:first-child), .ts-grid-table td:not(:first-child){ width:64px; min-width:64px; text-align:center; }
+.ts-grid-table th{ line-height:1.3; }
+.ts-grid-table td input{ width:48px; text-align:center; padding:5px 4px; }
+.ts-grid-table td.ts-weekend{ background:rgba(255,255,255,0.02); }
+.ts-grid-day-name{ display:block; font-size:8.5px; color:var(--text-3); text-transform:uppercase; }
+.ts-grid-day-num{ display:block; font-size:11px; }
 .pay202-table{ table-layout:fixed; width:max-content; }
 .pay202-table th, .pay202-table td{ box-sizing:border-box; }
 .pay202-table th:nth-child(1), .pay202-table td:nth-child(1){ width:180px; }
@@ -651,10 +651,11 @@ body {
 
 <!-- TIMESHEET FILTER BAR -->
 <div class="toolbar" id="timesheetFilterBar" style="display:none">
-  <span class="wk-label">Filter by:</span>
-  <select class="wk-sel" id="tsEmployeeFilter"><option value="">All Employees</option></select>
-  <select class="wk-sel" id="tsYearFilter"><option value="">All Years</option></select>
-  <button class="io-btn" onclick="clearTimesheetFilters()">Clear Filters</button>
+  <span class="wk-label">Show:</span>
+  <select class="wk-sel" id="tsStatusFilter">
+    <option value="Active">Active Employees</option>
+    <option value="">All Employees</option>
+  </select>
 </div>
 
 <!-- EMPLOYEE 202 FILTER BAR -->
@@ -710,36 +711,15 @@ body {
     <div id="historyBody"></div>
   </div>
 
-  <!-- TIMESHEET (DATA ENTRY: HOURS PER EMPLOYEE PER PAY PERIOD) -->
+  <!-- TIMESHEET (BULK DAILY HOURS ENTRY: EMPLOYEES x WEEKDAYS FOR A PAY PERIOD) -->
   <div id="timesheetView" style="display:none">
     <div class="card" style="margin-bottom:16px">
-      <div class="card-header"><span class="card-title">Add / Update Timesheet Entry</span></div>
       <div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div>
-          <label class="wk-label" style="display:block;margin-bottom:4px">Employee</label>
-          <select class="wk-sel" id="tsEmployeeSelect" style="min-width:200px"></select>
+          <label class="wk-label" style="display:block;margin-bottom:4px">Pay Period (cutoff 11th&ndash;10th, defaults every weekday to 8 hrs)</label>
+          <input type="month" class="search-box" id="tsGridPeriodInput" style="min-width:160px">
         </div>
-        <div>
-          <label class="wk-label" style="display:block;margin-bottom:4px">Pay Period (cutoff ends this month, 11th–10th)</label>
-          <input type="month" class="search-box" id="tsPeriodInput" style="min-width:160px">
-        </div>
-        <div>
-          <label class="wk-label" style="display:block;margin-bottom:4px">Standard Hours</label>
-          <input type="number" class="search-box" id="tsStandardHours" style="width:100px" step="0.01" value="1">
-        </div>
-        <div>
-          <label class="wk-label" style="display:block;margin-bottom:4px">OT Hours</label>
-          <input type="number" class="search-box" id="tsOvertimeHours" style="width:100px" step="0.01" value="0">
-        </div>
-        <div>
-          <label class="wk-label" style="display:block;margin-bottom:4px">Holiday Hours</label>
-          <input type="number" class="search-box" id="tsHolidayHours" style="width:100px" step="0.01" value="0">
-        </div>
-        <div>
-          <label class="wk-label" style="display:block;margin-bottom:4px">Vacation Hours</label>
-          <input type="number" class="search-box" id="tsVacationHours" style="width:100px" step="0.01" value="0">
-        </div>
-        <button class="io-btn primary" onclick="saveTimesheetEntry()">Save Entry</button>
+        <span class="rec-count" id="tsGridRangeLabel"></span>
       </div>
     </div>
     <div id="timesheetBody"></div>
@@ -774,8 +754,6 @@ let historySearchTerm = '';
 let historyEmployeeFilter = '';
 let historyYearFilter = '';
 let historyPeriodFilter = '';
-let tsEmployeeFilter = '';
-let tsYearFilter = '';
 let pay202EmployeeFilter = '';
 let pay202YearFilter = '';
 let filterDept = '';
@@ -796,6 +774,7 @@ const VACATION_MULTIPLIER = 1.0;
 let currentView = 'overview';
 let historyLoaded = false;
 let timesheetsLoaded = false;
+let timesheetEntriesLoaded = false;
 function switchView(view, btn){
   currentView = view;
   document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
@@ -816,11 +795,15 @@ function switchView(view, btn){
   document.getElementById('pay202FilterBar').style.display = view === 'pay202' ? 'flex' : 'none';
   if(view === 'overview') renderKpis();
   if(view === 'history' && !historyLoaded){ historyLoaded = true; loadHistory(); }
-  if((view === 'timesheet' || view === 'pay202') && !timesheetsLoaded){
+  if(view === 'timesheet' && !timesheetEntriesLoaded){
+    timesheetEntriesLoaded = true;
+    loadTimesheetEntries();
+  } else if(view === 'timesheet'){
+    renderTimesheetGrid();
+  }
+  if(view === 'pay202' && !timesheetsLoaded){
     timesheetsLoaded = true;
     loadTimesheets();
-  } else if(view === 'timesheet'){
-    renderTimesheet();
   } else if(view === 'pay202'){
     renderPay202();
   }
@@ -1174,27 +1157,14 @@ function fmtPeriodLabel(periodMonthStr){
 }
 
 /* ══════════════════════════════════════
-   TIMESHEET (data entry: hours per employee per pay period)
+   EMPLOYEE 202 DATA SOURCE (legacy monthly-aggregate table; still used by Employee 202 tab)
 ══════════════════════════════════════ */
 async function loadTimesheets(){
-  const bodyEl = document.getElementById('timesheetBody');
-  if(bodyEl) bodyEl.innerHTML = `<div style="text-align:center;color:var(--text-3);padding:24px">Loading timesheets\u2026</div>`;
   const { data, error } = await sb.from('timesheets').select('*').order('period_month', { ascending: true });
   if(error){ alert('Could not load timesheets: ' + error.message); return; }
   TIMESHEETS = data;
-  populateTimesheetEmployeeSelect();
-  populateTimesheetFilterOptions();
   populatePay202FilterOptions();
-  if(currentView === 'timesheet') renderTimesheet();
   if(currentView === 'pay202') renderPay202();
-}
-
-function populateTimesheetEmployeeSelect(){
-  const sel = document.getElementById('tsEmployeeSelect');
-  const current = sel.value;
-  const sorted = EMP201.slice().sort((a,b) => a.name.localeCompare(b.name));
-  sel.innerHTML = sorted.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
-  if(current && sorted.some(e => e.id === current)) sel.value = current;
 }
 
 function yearOptionsFromData(list, dateKey){
@@ -1204,126 +1174,110 @@ function yearOptionsFromData(list, dateKey){
   return [...years].sort().reverse();
 }
 
-function populateTimesheetFilterOptions(){
-  const empSel = document.getElementById('tsEmployeeFilter');
-  const current = empSel.value;
-  const sorted = EMP201.slice().sort((a,b) => a.name.localeCompare(b.name));
-  empSel.innerHTML = '<option value="">All Employees</option>' + sorted.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
-  if(current) empSel.value = current;
+/* ══════════════════════════════════════
+   TIMESHEET (bulk daily hours entry: employees × weekdays for a pay period)
+══════════════════════════════════════ */
+let TIMESHEET_ENTRIES = [];
+let tsSelectedPeriod = '2026-09';
+let tsStatusFilter = 'Active';
 
-  const yearSel = document.getElementById('tsYearFilter');
-  const currentYear = yearSel.value;
-  const years = yearOptionsFromData(TIMESHEETS, 'period_month');
-  yearSel.innerHTML = '<option value="">All Years</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
-  if(currentYear) yearSel.value = currentYear;
+async function loadTimesheetEntries(){
+  const container = document.getElementById('timesheetBody');
+  if(container) container.innerHTML = `<div style="text-align:center;color:var(--text-3);padding:24px">Loading timesheet\u2026</div>`;
+  const { data, error } = await sb.from('timesheet_entries').select('*');
+  if(error){ alert('Could not load timesheet entries: ' + error.message); return; }
+  TIMESHEET_ENTRIES = data;
+  renderTimesheetGrid();
 }
 
-document.getElementById('tsEmployeeFilter').addEventListener('change', (e) => { tsEmployeeFilter = e.target.value; renderTimesheet(); });
-document.getElementById('tsYearFilter').addEventListener('change', (e) => { tsYearFilter = e.target.value; renderTimesheet(); });
-
-function clearTimesheetFilters(){
-  tsEmployeeFilter = ''; tsYearFilter = '';
-  document.getElementById('tsEmployeeFilter').value = '';
-  document.getElementById('tsYearFilter').value = '';
-  renderTimesheet();
+// Every Mon\u2013Fri between the 11th of the prior month and the 10th of periodStr ('YYYY-MM', the pay month).
+function weekdaysInPeriod(periodStr){
+  const [y, m] = periodStr.split('-').map(Number);
+  const endDate = new Date(y, m - 1, 10);
+  const startDate = new Date(y, m - 2, 11);
+  const days = [];
+  const cur = new Date(startDate);
+  while(cur <= endDate){
+    const dow = cur.getDay();
+    if(dow >= 1 && dow <= 5){
+      const yyyy = cur.getFullYear();
+      const mm = String(cur.getMonth() + 1).padStart(2, '0');
+      const dd = String(cur.getDate()).padStart(2, '0');
+      days.push({
+        date: `${yyyy}-${mm}-${dd}`,
+        dayName: cur.toLocaleDateString('en-US', { weekday: 'short' }),
+        monthShort: cur.toLocaleDateString('en-US', { month: 'short' }),
+        dayNum: cur.getDate()
+      });
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return days;
 }
 
-async function saveTimesheetEntry(){
-  const employee_id = document.getElementById('tsEmployeeSelect').value;
-  const periodInput = document.getElementById('tsPeriodInput').value;
-  if(!employee_id || !periodInput){ alert('Please choose an employee and a pay period.'); return; }
-  const period_month = periodInput + '-01';
-  const standard_hours = parseFloat(document.getElementById('tsStandardHours').value) || 0;
-  const overtime_hours = parseFloat(document.getElementById('tsOvertimeHours').value) || 0;
-  const holiday_hours = parseFloat(document.getElementById('tsHolidayHours').value) || 0;
-  const vacation_hours = parseFloat(document.getElementById('tsVacationHours').value) || 0;
+document.getElementById('tsGridPeriodInput').addEventListener('change', (e) => {
+  if(e.target.value){ tsSelectedPeriod = e.target.value; renderTimesheetGrid(); }
+});
+document.getElementById('tsStatusFilter').addEventListener('change', (e) => {
+  tsStatusFilter = e.target.value; renderTimesheetGrid();
+});
 
-  const { data, error } = await sb.from('timesheets')
-    .upsert({ employee_id, period_month, standard_hours, overtime_hours, holiday_hours, vacation_hours, updated_at: new Date().toISOString() }, { onConflict: 'employee_id,period_month' })
+async function updateTimesheetHours(employeeId, workDate, hours){
+  const num = parseFloat(hours);
+  const hoursWorked = isNaN(num) ? 8 : num;
+  const existing = TIMESHEET_ENTRIES.find(t => t.employee_id === employeeId && t.work_date === workDate);
+  const { data, error } = await sb.from('timesheet_entries')
+    .upsert({ employee_id: employeeId, work_date: workDate, hours_worked: hoursWorked, updated_at: new Date().toISOString() }, { onConflict: 'employee_id,work_date' })
     .select();
-  if(error){ alert('Could not save timesheet entry: ' + error.message); return; }
+  if(error){ alert('Could not save hours: ' + error.message); return; }
   const saved = data[0];
-  const idx = TIMESHEETS.findIndex(t => t.employee_id === saved.employee_id && t.period_month === saved.period_month);
-  if(idx >= 0) TIMESHEETS[idx] = saved; else TIMESHEETS.push(saved);
-  populateTimesheetFilterOptions();
-  populatePay202FilterOptions();
-  renderTimesheet();
+  if(existing) Object.assign(existing, saved);
+  else TIMESHEET_ENTRIES.push(saved);
 }
 
-async function updateTimesheetField(id, key, val){
-  const rec = TIMESHEETS.find(t => t.id === id);
-  if(!rec) return;
-  const num = parseFloat(val) || 0;
-  rec[key] = num;
-  const { error } = await sb.from('timesheets').update({ [key]: num, updated_at: new Date().toISOString() }).eq('id', id);
-  if(error){ alert('Could not save change: ' + error.message); return; }
-}
-
-async function deleteTimesheetEntry(id){
-  const rec = TIMESHEETS.find(t => t.id === id);
-  if(!rec) return;
-  if(!confirm(`Remove the ${fmtPeriodLabel(rec.period_month)} entry for ${empName(rec.employee_id)}?`)) return;
-  const { error } = await sb.from('timesheets').delete().eq('id', id);
-  if(error){ alert('Could not remove entry: ' + error.message); return; }
-  TIMESHEETS = TIMESHEETS.filter(t => t.id !== id);
-  renderTimesheet();
-}
-
-function renderTimesheet(){
+function renderTimesheetGrid(){
   const container = document.getElementById('timesheetBody');
   if(!container) return;
-  const rows = TIMESHEETS
-    .filter(t => !tsEmployeeFilter || t.employee_id === tsEmployeeFilter)
-    .filter(t => !tsYearFilter || (t.period_month||'').startsWith(tsYearFilter));
 
-  if(rows.length === 0){
-    container.innerHTML = `<div style="text-align:center;color:var(--text-3);padding:24px">No timesheet entries yet. Add one above.</div>`;
+  const periodInput = document.getElementById('tsGridPeriodInput');
+  if(!periodInput.value) periodInput.value = tsSelectedPeriod;
+
+  const days = weekdaysInPeriod(tsSelectedPeriod);
+  const rangeLabel = document.getElementById('tsGridRangeLabel');
+  if(rangeLabel) rangeLabel.textContent = days.length ? `${fmtPeriodLabel(tsSelectedPeriod + '-01')} \u00b7 ${days.length} weekdays` : '';
+
+  const employees = EMP201
+    .filter(e => !tsStatusFilter || e.status === tsStatusFilter)
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  if(employees.length === 0 || days.length === 0){
+    container.innerHTML = `<div style="text-align:center;color:var(--text-3);padding:24px">No employees or days to show.</div>`;
     return;
   }
 
-  const groups = {};
-  rows.forEach(t => { (groups[t.employee_id] = groups[t.employee_id] || []).push(t); });
-  const ids = Object.keys(groups).sort((a,b) => empName(a).localeCompare(empName(b)));
+  const headerCells = days.map(d => `<th><span class="ts-grid-day-name">${d.dayName}</span><span class="ts-grid-day-num">${d.monthShort} ${d.dayNum}</span></th>`).join('');
 
-  container.innerHTML = ids.map(id => {
-    const recs = groups[id].slice().sort((a,b) => (a.period_month||'').localeCompare(b.period_month||''));
-    return `
-    <div class="sec-block" style="margin-bottom:16px">
-      <div class="sec-hd">
-        <span class="sec-hd-name">${empName(id)}</span>
-        <div class="sec-hd-right">
-          <span class="rec-count">${recs.length} period${recs.length!==1?'s':''}</span>
+  const bodyRows = employees.map(emp => {
+    const cells = days.map(d => {
+      const entry = TIMESHEET_ENTRIES.find(t => t.employee_id === emp.id && t.work_date === d.date);
+      const val = entry ? entry.hours_worked : 8;
+      return `<td><input type="number" step="0.5" min="0" value="${val}" onchange="updateTimesheetHours('${emp.id}','${d.date}',this.value)"></td>`;
+    }).join('');
+    return `<tr><td>${emp.name}</td>${cells}</tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="card">
+      <div class="card-body" style="padding:0">
+        <div class="tbl-scroll" style="max-height:calc(100vh - 230px)">
+          <table class="rec-table ts-grid-table">
+            <thead><tr><th>Employee</th>${headerCells}</tr></thead>
+            <tbody>${bodyRows}</tbody>
+          </table>
         </div>
       </div>
-      <div class="tbl-scroll">
-        <table class="rec-table timesheet-table">
-          <thead>
-            <tr>
-              <th>Pay Period (11th–10th)</th>
-              <th>Standard Hrs</th>
-              <th>OT Hrs</th>
-              <th>Holiday Hrs</th>
-              <th>Vacation Hrs</th>
-              <th>Note</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            ${recs.map(t => `
-            <tr>
-              <td>${fmtPeriodLabel(t.period_month)}</td>
-              <td><input type="number" step="0.01" value="${t.standard_hours||0}" onchange="updateTimesheetField('${t.id}','standard_hours',this.value)"></td>
-              <td><input type="number" step="0.01" value="${t.overtime_hours||0}" onchange="updateTimesheetField('${t.id}','overtime_hours',this.value)"></td>
-              <td><input type="number" step="0.01" value="${t.holiday_hours||0}" onchange="updateTimesheetField('${t.id}','holiday_hours',this.value)"></td>
-              <td><input type="number" step="0.01" value="${t.vacation_hours||0}" onchange="updateTimesheetField('${t.id}','vacation_hours',this.value)"></td>
-              <td>${t.note||''}</td>
-              <td><button class="del-btn" title="Remove" onclick="deleteTimesheetEntry('${t.id}')">\u2715</button></td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
     </div>`;
-  }).join('');
 }
 
 /* ══════════════════════════════════════
