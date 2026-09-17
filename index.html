@@ -1909,7 +1909,10 @@ function renderPay202(){
     // Capped at 100% so attendance can only reduce Monthly Pay, never inflate it — extra hours are Overtime, not this.
     const attendanceFactor = standardHours > 0 ? Math.min(regularHours / standardHours, 1) : 0;
     const nativeMonthlyPay = basicRate * attendanceFactor;
-    const overtimeNative = basicRate * OT_MULTIPLIER * totalOt;
+    // Hourly rate = Monthly Rate x 12 / 52 / 40 (annualise -> weekly -> hourly based on 40-hr week).
+    // Applies universally regardless of currency -- basic_pay_rate is always the monthly salary.
+    const hourlyRate = basicRate * 12 / 52 / 40;
+    const overtimeNative = hourlyRate * OT_MULTIPLIER * totalOt;
 
     // Normalize everything to USD first: USD employees pass through; PHP employees convert using this period's rate.
     const monthlyPayUSD = currency === 'USD' ? nativeMonthlyPay : (rate ? nativeMonthlyPay / rate : null);
