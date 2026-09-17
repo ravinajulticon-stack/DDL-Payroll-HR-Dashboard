@@ -518,6 +518,12 @@ body {
 .ts-grid-table th.ts-total-col:nth-child(2), .ts-grid-table td.ts-total-col:nth-child(2){ left:180px; }
 .ts-grid-table th.ts-total-col:nth-child(3), .ts-grid-table td.ts-total-col:nth-child(3){ left:260px; }
 .ts-grid-table tbody tr:hover td.ts-total-col{ background:#323234; }
+.pay202-input{ width:100%; min-width:0 !important; background:var(--surface-2); border:1px solid transparent; color:var(--text); padding:4px 6px; border-radius:5px; font-size:11.5px; font-family:inherit; text-align:right; }
+.pay202-input:hover{ border-color:var(--border-strong); }
+.pay202-input:focus{ outline:none; border-color:var(--blue); background:#1c1c1e; }
+.pay202-input.pay202-note{ text-align:left; }
+.pay202-total-row td{ background:rgba(10,132,255,0.08) !important; font-weight:700; color:var(--teal) !important; border-top:1px solid var(--border-strong); }
+.pay202-total-row td:first-child{ background:rgba(10,132,255,0.10) !important; color:var(--teal) !important; font-style:italic; }
 .pay202-table{ table-layout:fixed; width:max-content; }
 .pay202-table th, .pay202-table td{ box-sizing:border-box; }
 .pay202-table th:nth-child(1), .pay202-table td:nth-child(1){ width:150px; }
@@ -703,7 +709,9 @@ body {
                 <th>Status</th>
                 <th>Work Email Address</th>
                 <th>SSS</th>
+                <th>SSS Amount (PHP)</th>
                 <th>HO</th>
+                <th>HO Amount (USD)</th>
                 <th>Insurance</th>
                 <th>Insurance Amount (PHP)</th>
                 <th>Basic Pay Rate</th>
@@ -1329,6 +1337,7 @@ const PAY202_COLUMNS = [
   'Total PHP', 'Total Payout'
 ];
 let pay202EburyRate = null; // this period's PHP-per-USD rate; null until entered
+let PAY202_ENTRIES = [];    // manual per-employee figures for the selected period
 
 document.getElementById('pay202PeriodInput').addEventListener('change', (e) => {
   if(e.target.value){ pay202SelectedPeriod = e.target.value; loadPay202EburyRate(); }
@@ -1345,6 +1354,56 @@ async function loadPay202EburyRate(){
   const { data, error } = await sb.from('pay202_period_rates').select('*').eq('period_month', periodMonth).maybeSingle();
   if(error){ alert('Could not load Ebury rate: ' + error.message); }
   pay202EburyRate = (data && data.ebury_rate != null) ? parseFloat(data.ebury_rate) : null;
+  await loadPay202Entries();
+}
+
+// Per-employee, per-period manual figures (Double Pay, Others, Bank Fees, 13th, Other PHP, Note).
+async function loadPay202Entries(){
+  const periodMonth = pay202SelectedPeriod + '-01';
+  const { data, error } = await sb.from('pay202_entries').select('*').eq('period_month', periodMonth);
+  if(error){ alert('Could not load period entries: ' + error.message); PAY202_ENTRIES = []; renderPay202(); return; }
+  PAY202_ENTRIES = data || [];
+  renderPay202();
+}
+
+function pay202EntryFor(employeeId){
+  return PAY202_ENTRIES.find(e => e.employee_id === employeeId) || null;
+}
+
+function pay202Val(employeeId, key){
+  const e = pay202EntryFor(employeeId);
+  if(!e || e[key] == null || e[key] === '') return null;
+  const num = parseFloat(e[key]);
+  return isNaN(num) ? null : num;
+}
+
+async function savePay202Entry(employeeId, key, rawVal){
+  const periodMonth = pay202SelectedPeriod + '-01';
+  let val;
+  if(key === 'note'){
+    val = (rawVal || '').toString().trim() || null;
+  } else {
+    const cleaned = (rawVal || '').toString().replace(/,/g, '').trim();
+    if(cleaned === ''){ val = null; }
+    else {
+      const num = parseFloat(cleaned);
+      if(isNaN(num)){ alert('Please enter a valid number.'); renderPay202(); return; }
+      val = num;
+    }
+  }
+
+  const existing = pay202EntryFor(employeeId);
+  if(existing) existing[key] = val;
+
+  const { data, error } = await sb.from('pay202_entries')
+    .upsert({ employee_id: employeeId, period_month: periodMonth, [key]: val, updated_at: new Date().toISOString() }, { onConflict: 'employee_id,period_month' })
+    .select();
+  if(error){ alert('Could not save: ' + error.message); return; }
+  const saved = data && data[0];
+  if(saved){
+    if(existing) Object.assign(existing, saved);
+    else PAY202_ENTRIES.push(saved);
+  }
   renderPay202();
 }
 
@@ -1365,6 +1424,20 @@ async function savePay202EburyRate(val){
     .upsert({ period_month: periodMonth, ebury_rate: num, updated_at: new Date().toISOString() }, { onConflict: 'period_month' });
   if(error){ alert('Could not save Ebury rate: ' + error.message); return; }
   renderPay202();
+}
+
+function pay202MoneyCell(employeeId, key){
+  const val = pay202Val(employeeId, key);
+  const shown = val == null ? '' : fmtMoney(val);
+  return `<input type="text" inputmode="decimal" class="pay202-input" value="${shown}" placeholder="\u2014"
+    onchange="savePay202Entry('${employeeId}','${key}',this.value)">`;
+}
+
+function pay202NoteCell(employeeId){
+  const e = pay202EntryFor(employeeId);
+  const val = (e && e.note ? e.note : '').toString().replace(/"/g,'&quot;');
+  return `<input type="text" class="pay202-input pay202-note" value="${val}" placeholder="\u2014"
+    onchange="savePay202Entry('${employeeId}','note',this.value)">`;
 }
 
 function renderPay202(){
@@ -1394,6 +1467,8 @@ function renderPay202(){
   const days = weekdaysInPeriod(pay202SelectedPeriod);
   const cell = (val) => val == null ? '\u2014' : fmtMoney(val);
 
+  const runTotals = { totalUSD: 0, eburyPHP: 0, totalPHP: 0, totalPayout: 0, counted: 0 };
+
   const headerCells = PAY202_COLUMNS.map(c => `<th>${c}</th>`).join('');
   const bodyRows = employees.map(emp => {
     const basicRate = parseFloat(emp.basic_pay_rate) || 0;
@@ -1414,41 +1489,72 @@ function renderPay202(){
     const monthlyPayUSD = currency === 'USD' ? basicRate : (rate ? basicRate / rate : null);
     const overtimeUSD = currency === 'USD' ? overtimeNative : (rate ? overtimeNative / rate : null);
 
+    // Fixed per-employee amounts from Employee 201, applied only when the matching flag is ticked.
+    const homeOfficeUSD = emp.home_office ? (parseFloat(emp.home_office_amount) || 0) : 0;
     const maxicare = parseFloat(emp.insurance_amount) || 0;
+    const sssPHP = emp.sss_enrolled ? (parseFloat(emp.sss_amount) || 0) : 0;
 
-    const totalUSD = (monthlyPayUSD != null && overtimeUSD != null) ? (monthlyPayUSD + overtimeUSD) : null;
+    // Manual per-period figures.
+    const doublePay = pay202Val(emp.id, 'double_pay') || 0;
+    const othersUSD = pay202Val(emp.id, 'others_usd') || 0;
+    const bankFees  = pay202Val(emp.id, 'bank_fees')  || 0;
+    const thirteenth = pay202Val(emp.id, 'thirteenth') || 0;
+    const otherPHP  = pay202Val(emp.id, 'other_php')  || 0;
+
+    const totalUSD = (monthlyPayUSD != null && overtimeUSD != null)
+      ? (monthlyPayUSD + homeOfficeUSD + doublePay + othersUSD + overtimeUSD + bankFees)
+      : null;
     const eburyPHP = (totalUSD != null && rate) ? totalUSD * rate : null;
-    const totalPHP = maxicare;
+    const totalPHP = maxicare + sssPHP + thirteenth + otherPHP;
     const totalPayout = (eburyPHP != null) ? eburyPHP + totalPHP : null;
 
     const cells = [
-      cell(monthlyPayUSD),                          // Monthly Pay
-      '\u2014',                                     // Home Office
-      '\u2014',                                     // Double Pay
-      '\u2014',                                     // Others (USD)
-      cell(overtimeUSD),                            // Overtime
-      '\u2014',                                     // Bank Fees
-      cell(totalUSD),                               // Total USD
-      cell(eburyPHP),                               // Ebury USD/PHP
-      '\u2014',                                     // Note
-      maxicare ? fmtMoney(maxicare) : '\u2014',     // Maxicare
-      '\u2014',                                     // SSS
-      '\u2014',                                     // 13th
-      '\u2014',                                     // Other (PHP)
-      totalPHP ? fmtMoney(totalPHP) : '\u2014',     // Total PHP
-      cell(totalPayout)                             // Total Payout
+      cell(monthlyPayUSD),                              // Monthly Pay
+      homeOfficeUSD ? fmtMoney(homeOfficeUSD) : '\u2014', // Home Office
+      pay202MoneyCell(emp.id, 'double_pay'),            // Double Pay
+      pay202MoneyCell(emp.id, 'others_usd'),            // Others (USD)
+      overtimeUSD ? fmtMoney(overtimeUSD) : '\u2014',   // Overtime
+      pay202MoneyCell(emp.id, 'bank_fees'),             // Bank Fees
+      cell(totalUSD),                                   // Total USD
+      cell(eburyPHP),                                   // Ebury USD/PHP
+      pay202NoteCell(emp.id),                           // Note
+      maxicare ? fmtMoney(maxicare) : '\u2014',         // Maxicare
+      sssPHP ? fmtMoney(sssPHP) : '\u2014',             // SSS
+      pay202MoneyCell(emp.id, 'thirteenth'),            // 13th
+      pay202MoneyCell(emp.id, 'other_php'),             // Other (PHP)
+      totalPHP ? fmtMoney(totalPHP) : '\u2014',         // Total PHP
+      cell(totalPayout)                                 // Total Payout
     ];
+
+    runTotals.totalUSD += totalUSD || 0;
+    runTotals.eburyPHP += eburyPHP || 0;
+    runTotals.totalPHP += totalPHP || 0;
+    runTotals.totalPayout += totalPayout || 0;
+    if(totalPayout != null) runTotals.counted++;
 
     return `<tr><td>${emp.name}</td>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
   }).join('');
 
+  const blanks = (n) => Array(n).fill('<td></td>').join('');
+  const footRow = `<tr class="pay202-total-row">
+    <td>Period Total</td>${blanks(6)}
+    <td>${fmtMoney(runTotals.totalUSD)}</td>
+    <td>${fmtMoney(runTotals.eburyPHP)}</td>
+    ${blanks(5)}
+    <td>${fmtMoney(runTotals.totalPHP)}</td>
+    <td>${fmtMoney(runTotals.totalPayout)}</td>
+  </tr>`;
+
+  const warn = rate ? '' : `<div style="padding:8px 14px;font-size:11.5px;color:var(--amber);border-bottom:1px solid var(--border)">Enter this period's Ebury Conversion Rate to compute payouts.</div>`;
+
   container.innerHTML = `
     <div class="card">
       <div class="card-body" style="padding:0">
+        ${warn}
         <div class="tbl-scroll" style="max-height:calc(100vh - 230px)">
           <table class="rec-table pay202-table">
             <thead><tr><th>Name</th>${headerCells}</tr></thead>
-            <tbody>${bodyRows}</tbody>
+            <tbody>${bodyRows}${footRow}</tbody>
           </table>
         </div>
       </div>
@@ -1472,7 +1578,7 @@ function render(){
 
   const tbody = document.getElementById('empBody');
   if(rows.length === 0){
-    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;color:var(--text-3);padding:24px">No employees match the current search/filters.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="17" style="text-align:center;color:var(--text-3);padding:24px">No employees match the current search/filters.</td></tr>`;
     return;
   }
 
@@ -1486,7 +1592,9 @@ function render(){
       <td>${statusPillOrSelect(rec)}</td>
       <td>${field(rec,'pagibig','name@company.com','email')}</td>
       <td style="text-align:center"><input type="checkbox" ${rec.sss_enrolled?'checked':''} onchange="toggleSss('${rec.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;min-width:0"></td>
+      <td>${moneyField(rec,'sss_amount','Amount')}</td>
       <td style="text-align:center"><input type="checkbox" ${rec.home_office?'checked':''} onchange="toggleHomeOffice('${rec.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;min-width:0"></td>
+      <td>${moneyField(rec,'home_office_amount','Amount')}</td>
       <td>${insuranceSelect(rec)}</td>
       <td>${moneyField(rec,'insurance_amount','Amount')}</td>
       <td><div style="display:flex;gap:4px;align-items:center">${currencySelect(rec)}${moneyField(rec,'basic_pay_rate','Rate')}</div></td>
