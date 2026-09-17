@@ -524,6 +524,7 @@ body {
 .pay202-input.pay202-note{ text-align:left; }
 .pay202-total-row td{ background:rgba(10,132,255,0.08) !important; font-weight:700; color:var(--teal) !important; border-top:1px solid var(--border-strong); }
 .pay202-total-row td:first-child{ background:rgba(10,132,255,0.10) !important; color:var(--teal) !important; font-style:italic; }
+.pay202-entry-dot{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--blue-light); margin-left:5px; vertical-align:middle; }
 .pay202-table{ table-layout:fixed; width:max-content; }
 .pay202-table th, .pay202-table td{ box-sizing:border-box; }
 .pay202-table th:nth-child(1), .pay202-table td:nth-child(1){ width:150px; }
@@ -1430,14 +1431,16 @@ function pay202MoneyCell(employeeId, key){
   const val = pay202Val(employeeId, key);
   const shown = val == null ? '' : fmtMoney(val);
   return `<input type="text" inputmode="decimal" class="pay202-input" value="${shown}" placeholder="\u2014"
-    onchange="savePay202Entry('${employeeId}','${key}',this.value)">`;
+    onchange="savePay202Entry('${employeeId}','${key}',this.value)"
+    onkeydown="if(event.key==='Enter') this.blur()">`;
 }
 
 function pay202NoteCell(employeeId){
   const e = pay202EntryFor(employeeId);
   const val = (e && e.note ? e.note : '').toString().replace(/"/g,'&quot;');
   return `<input type="text" class="pay202-input pay202-note" value="${val}" placeholder="\u2014"
-    onchange="savePay202Entry('${employeeId}','note',this.value)">`;
+    onchange="savePay202Entry('${employeeId}','note',this.value)"
+    onkeydown="if(event.key==='Enter') this.blur()">`;
 }
 
 function renderPay202(){
@@ -1532,7 +1535,8 @@ function renderPay202(){
     runTotals.totalPayout += totalPayout || 0;
     if(totalPayout != null) runTotals.counted++;
 
-    return `<tr><td>${emp.name}</td>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
+    const hasManualEntry = !!(doublePay || othersUSD || bankFees || thirteenth || otherPHP || (pay202EntryFor(emp.id) && pay202EntryFor(emp.id).note));
+    return `<tr${hasManualEntry ? ' class="pay202-has-entry"' : ''}><td>${emp.name}${hasManualEntry ? ' <span class="pay202-entry-dot" title="Has manual entries this period"></span>' : ''}</td>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
   }).join('');
 
   const blanks = (n) => Array(n).fill('<td></td>').join('');
