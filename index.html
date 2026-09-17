@@ -566,7 +566,7 @@ body {
                 <th>Department</th>
                 <th>Employment Type</th>
                 <th>Status</th>
-                <th>Pag-IBIG No.</th>
+                <th>Work Email Address</th>
                 <th>SSS</th>
                 <th>Insurance</th>
                 <th>Basic Pay Rate</th>
@@ -754,7 +754,7 @@ function render(){
       <td>${field(rec,'department','Department')}</td>
       <td>${typeSelect(rec)}</td>
       <td>${statusPillOrSelect(rec)}</td>
-      <td>${field(rec,'pagibig','Pag-IBIG No.')}</td>
+      <td>${field(rec,'pagibig','name@company.com','email')}</td>
       <td style="text-align:center"><input type="checkbox" ${rec.sss_enrolled?'checked':''} onchange="toggleSss('${rec.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;min-width:0"></td>
       <td>${insuranceSelect(rec)}</td>
       <td>${field(rec,'basic_pay_rate','Rate','number')}</td>
