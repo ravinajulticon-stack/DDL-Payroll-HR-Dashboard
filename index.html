@@ -763,9 +763,10 @@ body {
       <div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div>
           <label class="wk-label" style="display:block;margin-bottom:4px">Pay Period (cutoff 11th&ndash;10th)</label>
-          <input type="month" class="search-box" id="tsGridPeriodInput" style="min-width:160px">
+          <input type="month" class="search-box" id="tsGridPeriodInput" min="2026-09" style="min-width:160px">
         </div>
         <span class="rec-count" id="tsGridRangeLabel"></span>
+        <span class="rec-count" style="color:var(--amber)">Periods before Sep 2026 are closed &mdash; already paid</span>
       </div>
     </div>
     <div id="timesheetBody"></div>
@@ -777,13 +778,14 @@ body {
       <div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div>
           <label class="wk-label" style="display:block;margin-bottom:4px">Pay Period (cutoff 11th&ndash;10th)</label>
-          <input type="month" class="search-box" id="pay202PeriodInput" style="min-width:160px">
+          <input type="month" class="search-box" id="pay202PeriodInput" min="2026-09" style="min-width:160px">
         </div>
         <div>
           <label class="wk-label" style="display:block;margin-bottom:4px">Ebury Conversion Rate (this period, PHP per USD)</label>
           <input type="text" inputmode="decimal" class="search-box" id="pay202EburyRateInput" placeholder="e.g. 58.50" style="width:140px">
         </div>
         <span class="rec-count" id="pay202RangeLabel"></span>
+        <span class="rec-count" style="color:var(--amber)">Periods before Sep 2026 are closed &mdash; already paid</span>
       </div>
     </div>
     <div id="pay202Body"></div>
@@ -822,6 +824,11 @@ const TYPE_OPTIONS = ['Regular', 'Probationary', 'Contractual'];
 const OT_MULTIPLIER = 2.0;
 const HOLIDAY_MULTIPLIER = 2.0;
 const VACATION_MULTIPLIER = 1.0;
+
+// Periods before this are closed — already paid out, no longer editable in Timesheet or Employee 202.
+// Employee 203's period picker stays fully open (for browsing history); instead, individual leave
+// entries dated before this period's start are separately protected from add/delete.
+const MIN_OPEN_PERIOD = '2026-09';
 
 /* ── view toggle ── */
 let currentView = 'overview';
@@ -1309,7 +1316,13 @@ function exitFallsInPeriod(emp, periodStr){
 }
 
 document.getElementById('tsGridPeriodInput').addEventListener('change', (e) => {
-  if(e.target.value){ tsSelectedPeriod = e.target.value; renderTimesheetGrid(); }
+  if(!e.target.value) return;
+  if(e.target.value < MIN_OPEN_PERIOD){
+    alert(`Periods before ${fmtPeriodLabel(MIN_OPEN_PERIOD + '-01')} are closed \u2014 payroll has already been finalized for those months.`);
+    e.target.value = tsSelectedPeriod;
+    return;
+  }
+  tsSelectedPeriod = e.target.value; renderTimesheetGrid();
 });
 document.getElementById('tsStatusFilter').addEventListener('change', (e) => {
   tsStatusFilter = e.target.value; renderTimesheetGrid();
@@ -1462,6 +1475,13 @@ function weekdayDatesInRange(startStr, endStr){
   return dates;
 }
 
+// True if a date falls before the first open period's start (Aug 11, 2026) — i.e. an already-paid,
+// closed pay period. Used to protect historical leave entries from being added or removed.
+function isDateInClosedPeriod(dateStr){
+  const cutoff = periodBounds(MIN_OPEN_PERIOD).start;
+  return new Date(dateStr + 'T00:00:00') < cutoff;
+}
+
 async function addLeaveEntry(){
   const employeeId = document.getElementById('leaveEmployeeSelect').value;
   if(!employeeId){ alert('Please choose an employee.'); return; }
@@ -1477,6 +1497,12 @@ async function addLeaveEntry(){
   const dates = weekdayDatesInRange(startDate, endDate);
   if(dates.length === 0){ alert('That date range has no weekdays in it — check the start and end dates.'); return; }
 
+  const closedDates = dates.filter(isDateInClosedPeriod);
+  if(closedDates.length > 0){
+    alert(`This range includes ${closedDates.length} day(s) before ${fmtPeriodLabel(MIN_OPEN_PERIOD + '-01')}, which is already a closed, paid period and can no longer be edited.`);
+    return;
+  }
+
   const rows = dates.map(d => ({ employee_id: employeeId, leave_date: d, leave_type: leaveType, hours, note, updated_at: new Date().toISOString() }));
   const { error } = await sb.from('leave_entries').upsert(rows, { onConflict: 'employee_id,leave_date' });
   if(error){ alert('Could not save leave: ' + error.message); return; }
@@ -1491,6 +1517,10 @@ async function addLeaveEntry(){
 async function deleteLeaveEntry(id){
   const rec = LEAVE_ENTRIES.find(l => l.id === id);
   if(!rec) return;
+  if(isDateInClosedPeriod(rec.leave_date)){
+    alert('This entry is in a closed, already-paid period and can no longer be removed.');
+    return;
+  }
   if(!confirm(`Remove this ${rec.leave_type} entry for ${empName(rec.employee_id)} on ${fmtDate(rec.leave_date)}?`)) return;
   const { error } = await sb.from('leave_entries').delete().eq('id', id);
   if(error){ alert('Could not remove leave entry: ' + error.message); return; }
@@ -1634,13 +1664,16 @@ function renderLeavePanel(){
 
   const bodyRows = rows.length ? rows.map(l => {
     const info = leaveTypeInfo(l.leave_type);
+    const closed = isDateInClosedPeriod(l.leave_date);
     return `<tr>
       <td>${fmtDate(l.leave_date)}</td>
       <td>${empName(l.employee_id)}</td>
       <td><span class="leave-pill ${info.paid ? 'leave-paid' : 'leave-unpaid'}">${l.leave_type}</span></td>
       <td style="text-align:right">${fmtHrs(parseFloat(l.hours)||0)}</td>
       <td style="color:var(--text-3)">${l.note || ''}</td>
-      <td><button class="del-btn" title="Remove" onclick="deleteLeaveEntry('${l.id}')">\u2715</button></td>
+      <td>${closed
+        ? `<span style="color:var(--text-3)" title="Closed, already-paid period \u2014 read only">\u{1F512}</span>`
+        : `<button class="del-btn" title="Remove" onclick="deleteLeaveEntry('${l.id}')">\u2715</button>`}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--text-3);padding:20px">No leave recorded for this period.</td></tr>`;
 
@@ -1666,6 +1699,7 @@ function renderLeavePanel(){
         <span class="card-title">Leave Log \u2014 ${fmtPeriodLabel(leaveSelectedPeriod + '-01')}</span>
         <span class="rec-count">${rows.length} record${rows.length!==1?'s':''} \u00b7 ${fmtHrs(paidTotal)} paid hrs \u00b7 ${fmtHrs(unpaidTotal)} unpaid hrs</span>
       </div>
+      ${leaveSelectedPeriod < MIN_OPEN_PERIOD ? `<div style="padding:8px 14px;font-size:11.5px;color:var(--amber);border-bottom:1px solid var(--border)">This period is closed \u2014 already paid. Viewing only; entries can no longer be added or removed.</div>` : ''}
       <div class="card-body" style="padding:0">
         <div class="tbl-scroll" style="max-height:calc(100vh - 380px)">
           <table class="rec-table">
@@ -1694,7 +1728,13 @@ let pay202EburyRate = null; // this period's PHP-per-USD rate; null until entere
 let PAY202_ENTRIES = [];    // manual per-employee figures for the selected period
 
 document.getElementById('pay202PeriodInput').addEventListener('change', (e) => {
-  if(e.target.value){ pay202SelectedPeriod = e.target.value; loadPay202EburyRate(); }
+  if(!e.target.value) return;
+  if(e.target.value < MIN_OPEN_PERIOD){
+    alert(`Periods before ${fmtPeriodLabel(MIN_OPEN_PERIOD + '-01')} are closed \u2014 payroll has already been finalized for those months.`);
+    e.target.value = pay202SelectedPeriod;
+    return;
+  }
+  pay202SelectedPeriod = e.target.value; loadPay202EburyRate();
 });
 document.getElementById('pay202StatusFilter').addEventListener('change', (e) => {
   pay202StatusFilter = e.target.value; renderPay202();
