@@ -751,6 +751,7 @@ body {
         </div>
       </div>
     </div>
+    <div id="leaveBalancesBody" style="margin-bottom:16px"></div>
     <div id="leaveBody"></div>
   </div>
 
@@ -857,6 +858,7 @@ function switchView(view, btn){
     leaveEntriesLoaded = true;
     loadLeaveEntries();
   } else if(view === 'leave'){
+    renderLeaveBalancesPanel();
     renderLeavePanel();
   }
   if(view === 'pay202' && !pay202EburyRateLoaded){
@@ -1378,20 +1380,31 @@ function renderTimesheetGrid(){
    Employee 202's Monthly Pay proration — paid types count as hours worked, Unpaid Leave doesn't)
 ══════════════════════════════════════ */
 const LEAVE_TYPES = [
-  { name: 'Sick Leave', paid: true },
-  { name: 'Annual Leave', paid: true },
-  { name: 'Unpaid Leave', paid: false },
+  { name: 'Annual Leave', paid: true, tracksBalance: true },
+  { name: 'Personal Leave', paid: true, tracksBalance: true },
+  { name: 'Compassionate Leave', paid: true, tracksBalance: false },
+  { name: 'Parental Leave', paid: true, tracksBalance: false },
+  { name: 'Maternity Leave', paid: true, tracksBalance: false },
+  { name: 'Holiday Leave', paid: true, tracksBalance: false },
+  { name: 'Unpaid Leave', paid: false, tracksBalance: false },
 ];
+// Annual/Personal Leave accrue this many hours on the 15th of every month (20 & 10 days/annum).
+const BALANCE_ACCRUAL_RATE = { 'Annual Leave': 13.33, 'Personal Leave': 6.66 };
 let LEAVE_ENTRIES = [];
+let LEAVE_BALANCES = [];
 let leaveSelectedPeriod = '2026-09';
 
-function leaveTypeInfo(name){ return LEAVE_TYPES.find(t => t.name === name) || { name, paid: false }; }
+function leaveTypeInfo(name){ return LEAVE_TYPES.find(t => t.name === name) || { name, paid: false, tracksBalance: false }; }
 function leaveOn(employeeId, dateStr){ return LEAVE_ENTRIES.find(l => l.employee_id === employeeId && l.leave_date === dateStr) || null; }
 
 async function loadLeaveEntries(){
   const { data, error } = await sb.from('leave_entries').select('*');
   if(error){ alert('Could not load leave entries: ' + error.message); return; }
   LEAVE_ENTRIES = data || [];
+  const { data: balData, error: balError } = await sb.from('leave_balances').select('*');
+  if(balError){ alert('Could not load leave balances: ' + balError.message); }
+  else { LEAVE_BALANCES = balData || []; }
+  renderLeaveBalancesPanel();
   renderLeavePanel();
   renderTimesheetGrid();
   renderPay202();
@@ -1452,9 +1465,94 @@ async function deleteLeaveEntry(id){
   const { error } = await sb.from('leave_entries').delete().eq('id', id);
   if(error){ alert('Could not remove leave entry: ' + error.message); return; }
   LEAVE_ENTRIES = LEAVE_ENTRIES.filter(l => l.id !== id);
+  renderLeaveBalancesPanel();
   renderLeavePanel();
   renderTimesheetGrid();
   renderPay202();
+}
+
+function balanceRecordFor(employeeId, leaveType){
+  return LEAVE_BALANCES.find(b => b.employee_id === employeeId && b.leave_type === leaveType) || null;
+}
+
+// Hours credited on the 15th of every month, strictly between seedDate (exclusive) and asOf (inclusive).
+function monthlyAccrualSince(seedDate, asOf, rate){
+  let total = 0;
+  let y = seedDate.getFullYear(), m = seedDate.getMonth() + 1; // 1-indexed
+  while(true){
+    const accrualDate = new Date(y, m - 1, 15);
+    if(accrualDate <= seedDate){ m++; if(m > 12){ m = 1; y++; } continue; }
+    if(accrualDate > asOf) break;
+    total += rate;
+    m++; if(m > 12){ m = 1; y++; }
+  }
+  return Math.round(total * 100) / 100;
+}
+
+// Live current balance = seed + accrual since seeding - paid hours taken since seeding. null if never seeded.
+function currentLeaveBalance(employeeId, leaveType){
+  const rec = balanceRecordFor(employeeId, leaveType);
+  if(!rec) return null;
+  const seedDate = new Date(rec.seed_date + 'T00:00:00');
+  const today = new Date();
+  const rate = BALANCE_ACCRUAL_RATE[leaveType] || 0;
+  const accrued = monthlyAccrualSince(seedDate, today, rate);
+  const seedDateStr = rec.seed_date;
+  let taken = 0;
+  LEAVE_ENTRIES.forEach(l => {
+    if(l.employee_id === employeeId && l.leave_type === leaveType && l.leave_date > seedDateStr){
+      taken += parseFloat(l.hours) || 0;
+    }
+  });
+  return Math.round((parseFloat(rec.seed_balance) + accrued - taken) * 100) / 100;
+}
+
+async function setLeaveBalance(employeeId, leaveType){
+  const current = balanceRecordFor(employeeId, leaveType);
+  const promptLabel = `Set ${leaveType} balance (hours) for ${empName(employeeId)}:`;
+  const raw = prompt(promptLabel, current ? String(current.seed_balance) : '');
+  if(raw === null) return;
+  const val = parseFloat(raw.trim());
+  if(isNaN(val) || val < 0){ alert('Please enter a valid, non-negative number of hours.'); return; }
+  const today = new Date();
+  const seedDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const { error } = await sb.from('leave_balances')
+    .upsert({ employee_id: employeeId, leave_type: leaveType, seed_balance: val, seed_date: seedDate, updated_at: new Date().toISOString() }, { onConflict: 'employee_id,leave_type' });
+  if(error){ alert('Could not save balance: ' + error.message); return; }
+  await loadLeaveEntries();
+}
+
+function renderLeaveBalancesPanel(){
+  const container = document.getElementById('leaveBalancesBody');
+  if(!container) return;
+
+  const employees = EMP201.filter(e => e.status === 'Active').slice().sort((a,b) => a.name.localeCompare(b.name));
+  const balanceTypes = LEAVE_TYPES.filter(t => t.tracksBalance);
+
+  const rows = employees.map(emp => {
+    const cells = balanceTypes.map(t => {
+      const bal = currentLeaveBalance(emp.id, t.name);
+      const display = bal === null ? '<span style="color:var(--amber)">Not set</span>' : fmtHrs(bal);
+      return `<td style="text-align:right">
+        <span>${display}</span>
+        <button class="del-btn" style="margin-left:6px" title="Set/adjust ${t.name} balance" onclick="setLeaveBalance('${emp.id}','${t.name}')">\u270e</button>
+      </td>`;
+    }).join('');
+    return `<tr><td>${emp.name}</td>${cells}</tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="card">
+      <div class="card-header"><span class="card-title">Leave Balances</span><span class="rec-count">Annual &amp; Personal Leave only \u2014 accrues 13.33 / 6.66 hrs on the 15th of each month</span></div>
+      <div class="card-body" style="padding:0">
+        <div class="tbl-scroll" style="max-height:320px">
+          <table class="rec-table">
+            <thead><tr><th>Employee</th>${balanceTypes.map(t => `<th style="text-align:right">${t.name}</th>`).join('')}</tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
 }
 
 function renderLeavePanel(){
