@@ -809,7 +809,7 @@ function switchView(view, btn){
   document.getElementById('timesheetFilterBar').style.display = view === 'timesheet' ? 'flex' : 'none';
   document.getElementById('pay202FilterBar').style.display = view === 'pay202' ? 'flex' : 'none';
   if(view === 'overview') renderKpis();
-  if(view === 'history' && !historyLoaded){ historyLoaded = true; loadHistory(); }
+  if((view === 'detail' || view === 'history') && !historyLoaded){ historyLoaded = true; loadHistory(); }
   if(view === 'timesheet' && !timesheetEntriesLoaded){
     timesheetEntriesLoaded = true;
     loadTimesheetEntries();
@@ -1030,6 +1030,7 @@ async function loadHistory(){
   HISTORY500 = data;
   populateHistoryFilterOptions();
   renderHistory();
+  render();
 }
 
 function populateHistoryFilterOptions(){
@@ -1154,6 +1155,16 @@ function renderHistory(){
 ══════════════════════════════════════ */
 function empById(id){ return EMP201.find(e => e.id === id); }
 function empName(id){ const e = empById(id); return e ? e.name : '(unknown employee)'; }
+
+// Most recent Employee 500 record for a given employee name, or null if they have no history yet.
+function latestHistoryFor(employeeName){
+  let latest = null;
+  for(const r of HISTORY500){
+    if(r.employee_name !== employeeName) continue;
+    if(!latest || (r.pay_date||'') > (latest.pay_date||'')) latest = r;
+  }
+  return latest;
+}
 
 function fmtPeriodLabel(periodMonthStr){
   if(!periodMonthStr) return '';
@@ -1388,8 +1399,8 @@ function render(){
       <td>${insuranceSelect(rec)}</td>
       <td>${moneyField(rec,'insurance_amount','Amount')}</td>
       <td><div style="display:flex;gap:4px;align-items:center">${currencySelect(rec)}${moneyField(rec,'basic_pay_rate','Rate')}</div></td>
-      <td>${moneyField(rec,'latest_total_payout','Total Payout')}</td>
-      <td>${field(rec,'latest_pay_date','','date')}</td>
+      <td>${(() => { const h = latestHistoryFor(rec.name); return h ? fmtMoney(h.total_payout) : '\u2014'; })()}</td>
+      <td>${(() => { const h = latestHistoryFor(rec.name); return h ? fmtDate(h.pay_date) : '\u2014'; })()}</td>
       <td><button class="del-btn" title="Remove" onclick="deleteEmployee('${rec.id}')">✕</button></td>
     </tr>
   `).join('');
