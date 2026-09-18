@@ -556,6 +556,8 @@ body {
 .lb-tile-section{ position:relative; }
 .lb-tile-edit-btn{ background:none; border:none; color:var(--text-3); cursor:pointer; font-size:11px; padding:2px 3px; border-radius:3px; position:absolute; top:0; right:0; }
 .lb-tile-edit-btn:hover{ background:var(--surface-3); color:var(--text); }
+.lb-tile.exited{ border-top-color:var(--green); box-shadow:0 0 0 1px rgba(48,209,88,0.45), 0 2px 14px rgba(48,209,88,0.28); }
+.lb-tile-exit-tag{ font-size:8px; text-transform:uppercase; letter-spacing:0.5px; color:var(--green); margin-top:4px; font-weight:600; }
 .pay202-table th:nth-child(2), .pay202-table td:nth-child(2){ width:100px; }
 .pay202-table th:nth-child(3), .pay202-table td:nth-child(3){ width:100px; }
 .lv-cal-wrap{ padding:4px 0 0; }
@@ -1909,7 +1911,11 @@ function renderLeaveBalancesPanel(){
   const container = document.getElementById('leaveBalancesBody');
   if(!container) return;
 
-  const employees = EMP201.filter(e => e.status === 'Active').slice().sort((a,b) => a.name.localeCompare(b.name));
+  const isExited = e => e.status !== 'Active';
+  const exitedCount = EMP201.filter(e => isExited(e) && e.exit_date).length;
+  const employees = EMP201
+    .filter(e => e.status === 'Active' || (showExitedBalances && e.exit_date))
+    .slice().sort((a,b) => a.name.localeCompare(b.name));
   const LB_TYPES = [
     { name:'Annual Leave',   short:'Annual'   },
     { name:'Personal Leave', short:'Personal' }
@@ -1933,8 +1939,8 @@ function renderLeaveBalancesPanel(){
         <button class="lb-tile-edit-btn" title="Edit ${t.name}" onclick="setLeaveBalance('${emp.id}','${t.name}')">✎</button>
       </div>${idx===0?'<hr class="lb-tile-divider">':''}`;
     }).join('');
-    return `<div class="lb-tile">
-      <div class="lb-tile-name">${firstName} ${lastInit}.</div>
+    return `<div class="lb-tile${emp.exit_date ? ' exited' : ''}">
+      <div class="lb-tile-name">${firstName} ${lastInit}.</div>${emp.exit_date ? `<div class="lb-tile-exit-tag">Exited ${emp.exit_date}</div>` : ''}
       ${sections}
     </div>`;
   }).join('');
@@ -1943,7 +1949,7 @@ function renderLeaveBalancesPanel(){
     <div class="card">
       <div class="card-header">
         <span class="card-title">Leave Balances</span>
-        <span class="rec-count">Annual &amp; Personal · accrues 13.33 / 6.66 hrs/mo · click ✎ to set opening balance</span>
+        <span class="rec-count">Annual &amp; Personal · accrues 13.33 / 6.66 hrs/mo${exitedCount ? ' · ' + exitedCount + ' exited <a href="#" onclick="event.preventDefault();toggleShowExitedBalances()" style="color:var(--blue);text-decoration:none">(' + (showExitedBalances ? 'hide' : 'show') + ')</a>' : ''}</span>
       </div>
       <div class="lb-tile-grid">${tiles}</div>
     </div>`;
@@ -2366,6 +2372,13 @@ function syncMonthPickerLabels(){
 
 
 /* EMPLOYEE 204 (SALARY LOAN SCHEDULE) */
+let showExitedBalances = false;
+
+function toggleShowExitedBalances(){
+  showExitedBalances = !showExitedBalances;
+  renderLeaveBalancesPanel();
+}
+
 let SALARY_LOANS = [];
 let showPaidLoans = false;
 
