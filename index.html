@@ -2363,7 +2363,18 @@ function loanInstallmentIndex(loan, periodStr){
 function loanPerInstallment(loan){
   var n = parseInt(loan.installments) || 0;
   if(n <= 0) return 0;
-  return (parseFloat(loan.principal) || 0) / n;
+  var p = parseFloat(loan.principal) || 0;
+  return Math.floor(p / n * 100) / 100;
+}
+
+// Amount due for a specific installment: the final one absorbs the rounding remainder.
+function loanInstallmentAmount(loan, idx){
+  var n = parseInt(loan.installments) || 0;
+  if(n <= 0) return 0;
+  var p = parseFloat(loan.principal) || 0;
+  var base = loanPerInstallment(loan);
+  if(idx >= n) return Math.round((p - base * (n - 1)) * 100) / 100;
+  return base;
 }
 
 function loanDeductionFor(employeeId, periodStr){
@@ -2371,7 +2382,7 @@ function loanDeductionFor(employeeId, periodStr){
   SALARY_LOANS.filter(function(l){ return l.employee_id === employeeId; }).forEach(function(l){
     var idx = loanInstallmentIndex(l, periodStr);
     if(idx < 1 || idx > (parseInt(l.installments)||0)) return;
-    var amt = loanPerInstallment(l);
+    var amt = loanInstallmentAmount(l, idx);
     if(l.currency === 'USD') usd += amt; else php += amt;
   });
   return { usd: Math.round(usd*100)/100, php: Math.round(php*100)/100 };
@@ -2427,6 +2438,7 @@ function renderLoansPanel(){
     var status = idx < 1 ? '<span style="color:var(--text-3)">Not started</span>'
       : (idx > total ? '<span style="color:var(--green)">Fully paid</span>'
       : '<span style="color:var(--blue)">Installment ' + idx + ' of ' + total + '</span>');
+    var lastAmt = loanInstallmentAmount(l, total);
     var pct = total ? Math.round(paid/total*100) : 0;
     var bar = '<div style="height:4px;background:var(--surface-3);border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:var(--blue)"></div></div>';
     return '<tr>'
@@ -2434,11 +2446,11 @@ function renderLoansPanel(){
       + '<td>' + (l.loan_name || "—") + '</td>'
       + '<td style="text-align:right">' + sym + fmtMoney(l.principal) + '</td>'
       + '<td style="text-align:center">' + l.currency + '</td>'
-      + '<td style="text-align:right">' + sym + fmtMoney(per) + '</td>'
+      + '<td style="text-align:right">' + sym + fmtMoney(per) + (lastAmt !== per ? '<div style="font-size:10px;color:var(--text-3)">last: ' + sym + fmtMoney(lastAmt) + '</div>' : '') + '</td>'
       + '<td style="text-align:center">' + total + '</td>'
       + '<td style="text-align:center">' + fmtPeriodLabel(l.start_period) + '</td>'
       + '<td>' + status + bar + '</td>'
-      + '<td style="text-align:right">' + sym + fmtMoney(per*remaining) + '</td>'
+      + '<td style="text-align:right">' + sym + fmtMoney(Math.max(0, Math.round(((parseFloat(l.principal)||0) - per*paid)*100)/100)) + '</td>'
       + '<td><button class="del-btn" title="Remove" onclick="deleteSalaryLoan(' + JSON.stringify(l.id) + ')">✕</button></td>'
       + '</tr>';
   }).join('');
