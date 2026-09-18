@@ -2160,9 +2160,15 @@ function attachMonthPicker(inputId){
 
   document.addEventListener('click', close);
 
-  // keep the label in sync if code sets input.value directly
-  const obs = new MutationObserver(function(){ field.textContent = mpLabel(input.value); });
-  obs.observe(input, { attributes:true, attributeFilter:['value'] });
+  // keep the label in sync whenever code sets input.value programmatically
+  var vd = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), 'value');
+  if(vd && vd.get && vd.set){
+    Object.defineProperty(input, 'value', {
+      configurable: true,
+      get: function(){ return vd.get.call(this); },
+      set: function(nv){ vd.set.call(this, nv); if(this.__mpField) this.__mpField.textContent = mpLabel(nv); }
+    });
+  }
   input.addEventListener('change', function(){ field.textContent = mpLabel(input.value); });
 }
 
