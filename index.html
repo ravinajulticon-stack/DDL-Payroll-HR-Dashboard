@@ -1895,24 +1895,36 @@ function renderPay202(){
     // record but never adds hours. Overtime is always derived purely from hours actually worked.
     let totalOt = 0;
     let regularHours = 0;
+    let unpaidLeaveHours = 0;
     days.forEach(d => {
       const entry = TIMESHEET_ENTRIES.find(t => t.employee_id === emp.id && t.work_date === d.date);
       const workedHrs = entry ? (parseFloat(entry.hours_worked) || 0) : 0;
       if(workedHrs > 8) totalOt += (workedHrs - 8);
 
       const leave = leaveOn(emp.id, d.date);
-      const paidLeaveHrs = (leave && leaveTypeInfo(leave.leave_type).paid) ? (parseFloat(leave.hours) || 0) : 0;
+      const info = leave ? leaveTypeInfo(leave.leave_type) : null;
+      const paidLeaveHrs   = (info && info.paid)  ? (parseFloat(leave.hours) || 0) : 0;
+      const unpaidLeaveHrs = (info && !info.paid) ? (parseFloat(leave.hours) || 0) : 0;
 
-      regularHours += Math.min(workedHrs + paidLeaveHrs, 8);
+      regularHours     += Math.min(workedHrs + paidLeaveHrs, 8);
+      unpaidLeaveHours += unpaidLeaveHrs;
     });
     const standardHours = days.length * 8;
     // Hourly rate = Monthly Rate x 12 / 52 / 40 (annualise -> weekly -> hourly based on 40-hr week).
-    // Applies universally regardless of currency -- basic_pay_rate is always the monthly salary.
-    // Used for both absent-day deductions and overtime, keeping both consistent.
     const hourlyRate = basicRate * 12 / 52 / 40;
-    // Pay purely for hours worked/covered: hourlyRate x regularHours.
-    // regularHours already includes paid leave hours, so paid leave days contribute equally to worked days.
-    const nativeMonthlyPay = Math.min(hourlyRate * regularHours, basicRate);
+
+    // Three-rule Monthly Pay:
+    //   Rule 1 — no blanks, no unpaid leave: full monthly rate (fixed).
+    //   Rule 2 — no blanks, has unpaid leave: monthly rate minus unpaid-leave deduction.
+    //   Rule 3 — has blank days: pay only for hours actually worked / covered by paid leave (hourly x hrs, capped at monthly).
+    // "Blank hours" = days with neither a timesheet entry nor any leave entry.
+    const blankHours = Math.max(0, standardHours - regularHours - unpaidLeaveHours);
+    let nativeMonthlyPay;
+    if (blankHours === 0) {
+      nativeMonthlyPay = Math.max(0, basicRate - (unpaidLeaveHours * hourlyRate));
+    } else {
+      nativeMonthlyPay = Math.min(hourlyRate * regularHours, basicRate);
+    }
     const overtimeNative = hourlyRate * OT_MULTIPLIER * totalOt;
 
     // Normalize everything to USD first: USD employees pass through; PHP employees convert using this period's rate.
