@@ -2345,6 +2345,12 @@ function syncMonthPickerLabels(){
 
 /* EMPLOYEE 204 (SALARY LOAN SCHEDULE) */
 let SALARY_LOANS = [];
+let showPaidLoans = false;
+
+function toggleShowPaidLoans(){
+  showPaidLoans = !showPaidLoans;
+  renderLoansPanel();
+}
 let salaryLoansLoaded = false;
 
 async function loadSalaryLoans(){
@@ -2459,10 +2465,16 @@ function renderLoansPanel(){
   if(!container) return;
   var employees = EMP201.slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
   var nowPeriod = pay202SelectedPeriod;
+  var paidCount = SALARY_LOANS.filter(function(l){ return loanPaidSummary(l).count >= (parseInt(l.installments)||0); }).length;
+  var activeCount = SALARY_LOANS.length - paidCount;
   var rows = SALARY_LOANS.slice().sort(function(a,b){
     var ea = (EMP201.find(function(e){return e.id===a.employee_id;})||{}).name || '';
     var eb = (EMP201.find(function(e){return e.id===b.employee_id;})||{}).name || '';
     return ea.localeCompare(eb) || a.start_period.localeCompare(b.start_period);
+  }).filter(function(l){
+    if(showPaidLoans) return true;
+    var n = parseInt(l.installments)||0;
+    return loanPaidSummary(l).count < n;
   }).map(function(l){
     var emp = EMP201.find(function(e){return e.id===l.employee_id;});
     var per = loanPerInstallment(l);
@@ -2493,7 +2505,8 @@ function renderLoansPanel(){
   }).join('');
 
   var opts = employees.map(function(e){ return '<option value="' + e.id + '">' + e.name + '</option>'; }).join('');
-  var empty = '<tr><td colspan="10" style="text-align:center;color:var(--text-3);padding:16px">No loans recorded yet.</td></tr>';
+  var emptyMsg = SALARY_LOANS.length === 0 ? 'No loans recorded yet.' : 'All loans are fully paid.';
+  var empty = '<tr><td colspan="10" style="text-align:center;color:var(--text-3);padding:16px">' + emptyMsg + '</td></tr>';
 
   container.innerHTML = ''
     + '<div class="card" style="margin-bottom:16px">'
@@ -2517,7 +2530,7 @@ function renderLoansPanel(){
     + '</div>'
     + '<div class="card">'
     +   '<div class="card-header"><span class="card-title">Salary Loan Schedule</span>'
-    +   '<span class="rec-count">' + SALARY_LOANS.length + ' loan' + (SALARY_LOANS.length!==1?'s':'') + ' — progress as of ' + fmtPeriodLabel(nowPeriod + '-01') + '</span></div>'
+    +   '<span class="rec-count">' + activeCount + ' active loan' + (activeCount!==1?'s':'') + (paidCount ? ' — ' + paidCount + ' fully paid' : '') + (paidCount ? ' <a href="#" onclick="event.preventDefault();toggleShowPaidLoans()" style="color:var(--blue);text-decoration:none">(' + (showPaidLoans ? 'hide' : 'show') + ')</a>' : '') + '</span></div>'
     +   '<div class="card-body" style="padding:0"><div class="tbl-scroll" style="max-height:calc(100vh - 340px)">'
     +     '<table class="rec-table"><thead><tr>'
     +       '<th>Employee</th><th>Loan</th><th style="text-align:right">Amount</th>'
