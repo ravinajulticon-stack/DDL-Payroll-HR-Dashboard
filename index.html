@@ -531,6 +531,16 @@ body {
 .pay202-table{ table-layout:fixed; width:max-content; }
 .pay202-table th, .pay202-table td{ box-sizing:border-box; }
 .pay202-table th:nth-child(1), .pay202-table td:nth-child(1){ width:150px; }
+.lb-tile-grid{ display:flex; flex-wrap:wrap; gap:10px; padding:14px; }
+.lb-tile{ flex:1; min-width:115px; max-width:170px; background:var(--surface-2); border:1px solid var(--border-strong); border-top:3px solid var(--blue); border-radius:var(--radius); padding:12px 10px 10px; text-align:center; }
+.lb-tile-name{ font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-2); margin-bottom:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lb-tile-val{ font-size:21px; font-weight:700; color:var(--text); line-height:1.1; }
+.lb-tile-val.lb-sub{ font-size:15px; color:var(--text-2); }
+.lb-tile-lbl{ font-size:9px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-3); margin-top:2px; }
+.lb-tile-divider{ border:none; border-top:1px solid var(--border); margin:9px 0; }
+.lb-tile-section{ position:relative; }
+.lb-tile-edit-btn{ background:none; border:none; color:var(--text-3); cursor:pointer; font-size:11px; padding:2px 3px; border-radius:3px; position:absolute; top:0; right:0; }
+.lb-tile-edit-btn:hover{ background:var(--surface-3); color:var(--text); }
 .pay202-table th:nth-child(2), .pay202-table td:nth-child(2){ width:100px; }
 .pay202-table th:nth-child(3), .pay202-table td:nth-child(3){ width:100px; }
 .pay202-toggle{ position:relative; display:inline-block; width:34px; height:18px; vertical-align:middle; }
@@ -1694,34 +1704,40 @@ function renderLeaveBalancesPanel(){
   if(!container) return;
 
   const employees = EMP201.filter(e => e.status === 'Active').slice().sort((a,b) => a.name.localeCompare(b.name));
-  const balanceTypes = LEAVE_TYPES.filter(t => t.tracksBalance);
+  const LB_TYPES = [
+    { name:'Annual Leave',   short:'Annual'   },
+    { name:'Personal Leave', short:'Personal' }
+  ];
 
-  const rows = employees.map(emp => {
-    const cells = balanceTypes.map(t => {
+  const tiles = employees.map(emp => {
+    const firstName = emp.name.split(' ')[0];
+    const lastInit  = (emp.name.split(' ')[1] || '')[0] || '';
+    const sections = LB_TYPES.map((t, idx) => {
       const bal = currentLeaveBalance(emp.id, t.name);
-      const display = bal === null ? '<span style="color:var(--amber)">Not set</span>' : fmtHrs(bal);
-      return `<td style="text-align:right">
-        <span>${display}</span>
-        <button class="del-btn" style="margin-left:6px" title="Set/adjust ${t.name} balance" onclick="setLeaveBalance('${emp.id}','${t.name}')">\u270e</button>
-      </td>`;
+      const valHtml = bal === null
+        ? `<span style="font-size:12px;color:var(--amber)">— Not set</span>`
+        : `<span class="lb-tile-val${idx===1?' lb-sub':''}">${fmtHrs(bal)}</span>`;
+      return `<div class="lb-tile-section">
+        ${valHtml}
+        <div class="lb-tile-lbl">${t.short}</div>
+        <button class="lb-tile-edit-btn" title="Edit ${t.name}" onclick="setLeaveBalance('${emp.id}','${t.name}')">✎</button>
+      </div>${idx===0?'<hr class="lb-tile-divider">':''}`;
     }).join('');
-    return `<tr><td>${emp.name}</td>${cells}</tr>`;
+    return `<div class="lb-tile">
+      <div class="lb-tile-name">${firstName} ${lastInit}.</div>
+      ${sections}
+    </div>`;
   }).join('');
 
   container.innerHTML = `
     <div class="card">
-      <div class="card-header"><span class="card-title">Leave Balances</span><span class="rec-count">Annual &amp; Personal Leave only \u2014 accrues 13.33 / 6.66 hrs on the 15th of each month</span></div>
-      <div class="card-body" style="padding:0">
-        <div class="tbl-scroll" style="max-height:320px">
-          <table class="rec-table">
-            <thead><tr><th>Employee</th>${balanceTypes.map(t => `<th style="text-align:right">${t.name}</th>`).join('')}</tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
+      <div class="card-header">
+        <span class="card-title">Leave Balances</span>
+        <span class="rec-count">Annual &amp; Personal · accrues 13.33 / 6.66 hrs/mo · click ✎ to set opening balance</span>
       </div>
+      <div class="lb-tile-grid">${tiles}</div>
     </div>`;
 }
-
 function renderLeavePanel(){
   const container = document.getElementById('leaveBody');
   if(!container) return;
