@@ -552,6 +552,21 @@ body {
 .lb-tile-edit-btn:hover{ background:var(--surface-3); color:var(--text); }
 .pay202-table th:nth-child(2), .pay202-table td:nth-child(2){ width:100px; }
 .pay202-table th:nth-child(3), .pay202-table td:nth-child(3){ width:100px; }
+.lv-cal-wrap{ padding:4px 0 0; }
+.lv-cal-month{ margin-bottom:20px; }
+.lv-cal-title{ font-size:20px; font-weight:700; color:var(--text); padding:14px 18px 8px; letter-spacing:-0.3px; }
+.lv-cal-table{ width:100%; border-collapse:collapse; table-layout:fixed; }
+.lv-cal-table th{ background:var(--surface-2); color:var(--text-2); font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; text-align:center; padding:7px 4px; border:0.5px solid var(--border); }
+.lv-cal-cell{ border:0.5px solid var(--border); vertical-align:top; padding:4px 5px 5px; background:var(--surface-1); min-height:64px; }
+.lv-cal-cell.wknd{ background:var(--surface-2); }
+.lv-cal-cell.oob{ background:var(--surface-2); opacity:0.45; }
+.lv-cal-day{ font-size:11px; font-weight:600; color:var(--text-2); text-align:right; margin-bottom:3px; }
+.lv-entry{ font-size:10px; padding:2px 5px; border-radius:3px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:default; }
+.lv-entry.al{ background:rgba(10,132,255,0.18); color:#409cff; }
+.lv-entry.pl{ background:rgba(48,209,88,0.15); color:var(--green); }
+.lv-entry.ul{ background:rgba(255,159,10,0.15); color:var(--amber); }
+.lv-entry.other{ background:rgba(191,90,242,0.15); color:var(--purple); }
+
 .pay202-toggle{ position:relative; display:inline-block; width:34px; height:18px; vertical-align:middle; }
 .pay202-toggle input{ opacity:0; width:0; height:0; position:absolute; }
 .pay202-toggle-slider{ position:absolute; cursor:pointer; inset:0; background:var(--surface-3); border-radius:18px; transition:.2s; }
@@ -1821,6 +1836,52 @@ function renderLeaveBalancesPanel(){
       <div class="lb-tile-grid">${tiles}</div>
     </div>`;
 }
+function _deptAbbr(dept){
+  if(!dept) return '';
+  if(/CS|Install/i.test(dept)) return 'CS';
+  if(/Market/i.test(dept)) return 'Mkt';
+  if(/Financ/i.test(dept)) return 'Fin';
+  if(/Oper/i.test(dept)) return 'Ops';
+  return dept.split(' ')[0].slice(0,3);
+}
+function _typeAbbr(t){ return {'Annual Leave':'AL','Personal Leave':'PL','Unpaid Leave':'UL','Compassionate Leave':'CL','Holiday Leave':'HL','Maternity Leave':'ML','Parental Leave':'PaL'}[t]||(t.slice(0,2).toUpperCase()); }
+function _typeClass(t){ if(t==='Annual Leave')return 'al'; if(t==='Personal Leave')return 'pl'; if(t==='Unpaid Leave')return 'ul'; return 'other'; }
+function renderLeaveCalendar(entries, periodStr){
+  const [py,pm]=periodStr.split('-').map(Number);
+  let sm=pm-1,sy=py; if(sm<=0){sm+=12;sy-=1;}
+  const months=[{y:sy,m:sm},{y:py,m:pm}];
+  const pStart=`${sy}-${String(sm).padStart(2,'0')}-11`;
+  const pEnd=`${py}-${String(pm).padStart(2,'0')}-10`;
+  const byDate={};
+  entries.forEach(e=>{ if(!byDate[e.leave_date])byDate[e.leave_date]=[]; byDate[e.leave_date].push(e); });
+  const DN=['SUN','MON','TUES','WED','THURS','FRI','SAT'];
+  const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return months.map(({y,m})=>{
+    const fd=new Date(y,m-1,1).getDay();
+    const dim=new Date(y,m,0).getDate();
+    let rows='<tr>';
+    for(let i=0;i<fd;i++) rows+='<td class="lv-cal-cell oob wknd"></td>';
+    for(let d=1;d<=dim;d++){
+      const ds=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const dow=(fd+d-1)%7;
+      const isW=dow===0||dow===6;
+      const inP=ds>=pStart&&ds<=pEnd;
+      const cls='lv-cal-cell'+(isW?' wknd':'')+(inP?'':' oob');
+      const ents=(byDate[ds]||[]).map(e=>{
+        const emp=EMP201.find(x=>x.id===e.employee_id);
+        const name=emp?emp.name.split(' ')[0]:'?';
+        const dept=_deptAbbr(emp?.department||'');
+        const abbr=_typeAbbr(e.leave_type);
+        const tc=_typeClass(e.leave_type);
+        return `<div class="lv-entry ${tc}" title="${emp?.name||''} · ${e.leave_type} · ${e.hours} hrs">${name} (${dept}-${abbr})</div>`;
+      }).join('');
+      rows+=`<td class="${cls}"><div class="lv-cal-day">${d}</div>${ents}</td>`;
+      if(dow===6&&d<dim) rows+='</tr><tr>';
+    }
+    rows+='</tr>';
+    return `<div class="lv-cal-month"><div class="lv-cal-title">${MN[m-1]} ${y}</div><table class="lv-cal-table"><thead><tr>${DN.map(d=>'<th>'+d+'</th>').join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  }).join('');
+}
 function renderLeavePanel(){
   const container = document.getElementById('leaveBody');
   if(!container) return;
@@ -1890,14 +1951,7 @@ function renderLeavePanel(){
         <span class="rec-count">${rows.length} record${rows.length!==1?'s':''} \u00b7 ${fmtHrs(paidTotal)} paid hrs \u00b7 ${fmtHrs(unpaidTotal)} unpaid hrs</span>
       </div>
       ${leaveSelectedPeriod < MIN_OPEN_PERIOD ? `<div style="padding:8px 14px;font-size:11.5px;color:var(--amber);border-bottom:1px solid var(--border)">This period is closed \u2014 already paid. Viewing only; entries can no longer be added or removed.</div>` : ''}
-      <div class="card-body" style="padding:0">
-        <div class="tbl-scroll" style="max-height:calc(100vh - 380px)">
-          <table class="rec-table">
-            <thead><tr><th>Date</th><th>Employee</th><th>Type</th><th style="text-align:right">Hours</th><th>Note</th><th></th></tr></thead>
-            <tbody>${bodyRows}</tbody>
-          </table>
-        </div>
-      </div>
+      <div class="lv-cal-wrap">${renderLeaveCalendar(rows, leaveSelectedPeriod)}</div>
     </div>`;
 
   const empSel = document.getElementById('leaveEmployeeSelect');
