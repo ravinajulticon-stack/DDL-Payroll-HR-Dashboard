@@ -1519,7 +1519,7 @@ async function loadLeaveEntries(){
 document.getElementById('leavePeriodInput').addEventListener('change', (e) => {
   if(!e.target.value) return;
   if(e.target.value < MIN_OPEN_PERIOD){ e.target.value = leaveSelectedPeriod; return; }
-  leaveSelectedPeriod = e.target.value; renderLeaveBalancesPanel(); renderLeavePanel();
+  leaveSelectedPeriod = e.target.value; renderLeaveBalancesPanel(); renderLeavePanel(); renderVicHolidaysPanel();
 });
 
 // Every Mon\u2013Fri between startStr and endStr inclusive (weekends are never workdays, so leave never applies to them).
