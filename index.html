@@ -2888,7 +2888,7 @@ function renderPay202(){
   const days = weekdaysInPeriod(pay202SelectedPeriod);
   const cell = (val) => val == null ? '\u2014' : fmtMoney(val);
 
-  const runTotals = { totalUSD: 0, eburyPHP: 0, totalPHP: 0, totalPayout: 0, counted: 0 };
+  const runTotals = { monthlyPay:0, homeOffice:0, doublePay:0, othersUSD:0, overtime:0, leavePayout:0, bankFees:0, totalUSD: 0, eburyPHP: 0, maxicare:0, sss:0, thirteenth:0, loan:0, otherPHP:0, totalPHP: 0, totalPayout: 0, counted: 0 };
 
   const headerCells = PAY202_COLUMNS.map(c => `<th>${c}</th>`).join('');
   const bodyRows = employees.map(emp => {
@@ -3051,6 +3051,18 @@ function renderPay202(){
       cell(totalPayout)                                 // Total Payout
     ];
 
+    runTotals.monthlyPay  += monthlyPayUSD || 0;
+    runTotals.homeOffice  += homeOfficeUSD || 0;
+    runTotals.doublePay   += doublePay || 0;
+    runTotals.othersUSD   += othersUSD || 0;
+    runTotals.overtime    += overtimeUSD || 0;
+    runTotals.leavePayout += leavePayoutUSD || 0;
+    runTotals.bankFees    += bankFees || 0;
+    runTotals.maxicare    += maxicare || 0;
+    runTotals.sss         += sssPHP || 0;
+    runTotals.thirteenth  += thirteenth || 0;
+    runTotals.loan        += loanPHP || 0;
+    runTotals.otherPHP    += otherPHP || 0;
     runTotals.totalUSD += totalUSD || 0;
     runTotals.eburyPHP += eburyPHP || 0;
     runTotals.totalPHP += totalPHP || 0;
@@ -3064,10 +3076,22 @@ function renderPay202(){
 
   const blanks = (n) => Array(n).fill('<td></td>').join('');
   const footRow = `<tr class="pay202-total-row">
-    <td>Period Total</td>${blanks(7)}
+    <td>Period Total</td>
+    <td>${runTotals.monthlyPay ? fmtMoney(runTotals.monthlyPay) : "\u2014"}</td>
+    <td>${runTotals.homeOffice ? fmtMoney(runTotals.homeOffice) : "\u2014"}</td>
+    <td>${runTotals.doublePay ? fmtMoney(runTotals.doublePay) : "\u2014"}</td>
+    <td>${runTotals.othersUSD ? fmtMoney(runTotals.othersUSD) : "\u2014"}</td>
+    <td>${runTotals.overtime ? fmtMoney(runTotals.overtime) : "\u2014"}</td>
+    <td>${runTotals.leavePayout ? fmtMoney(runTotals.leavePayout) : "\u2014"}</td>
+    <td>${runTotals.bankFees ? fmtMoney(runTotals.bankFees) : "\u2014"}</td>
     <td>${fmtMoney(runTotals.totalUSD)}</td>
     <td>${fmtMoney(runTotals.eburyPHP)}</td>
-    ${blanks(6)}
+    <td>${runTotals.maxicare ? fmtMoney(runTotals.maxicare) : "\u2014"}</td>
+    <td>${runTotals.sss ? fmtMoney(runTotals.sss) : "\u2014"}</td>
+    <td>${runTotals.thirteenth ? fmtMoney(runTotals.thirteenth) : "\u2014"}</td>
+    <td>${runTotals.loan ? fmtMoney(runTotals.loan) : "\u2014"}</td>
+    <td>${runTotals.otherPHP ? fmtMoney(runTotals.otherPHP) : "\u2014"}</td>
+    <td></td>
     <td>${fmtMoney(runTotals.totalPHP)}</td>
     <td>${fmtMoney(runTotals.totalPayout)}</td>
     <td></td>
