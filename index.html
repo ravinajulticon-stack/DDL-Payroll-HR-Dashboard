@@ -1070,6 +1070,12 @@ async function updateMoneyField(id, key, val){
 // from their Leave Balances seed. Blank if no exit date set; "Not set" if never seeded.
 function leavePayoutCell(rec){
   if(!rec.exit_date) return '\u2014';
+  // Use manually stored payout if set (historical / already-paid employees)
+  if(rec.leave_payout != null){
+    const symbol = rec.currency === 'USD' ? '$' : '\u20b1';
+    return `<span title="Stored leave payout">${symbol}${fmtMoney(rec.leave_payout)}</span>`;
+  }
+  // Otherwise compute from current Annual Leave balance (active / Sep+ exits)
   const payout = annualLeavePayoutNative(rec);
   if(payout === null) return '<span style="color:var(--amber)" title="No Annual Leave balance on record for this employee">Not set</span>';
   const symbol = rec.currency === 'USD' ? '$' : '\u20b1';
