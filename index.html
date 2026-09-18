@@ -1727,12 +1727,16 @@ function currentLeaveBalance(employeeId, leaveType){
 // null if never seeded (can't compute a payout without a known balance).
 function annualLeavePayoutNative(emp){
   if(!emp.exit_date) return 0;
+  // Manual override from Employee 201 takes precedence (historical / already-settled staff)
+  if(emp.leave_payout != null) return parseFloat(emp.leave_payout) || 0;
   const bal = leaveBalanceAsOf(emp.id, 'Annual Leave', new Date(emp.exit_date + 'T00:00:00'));
   if(bal === null) return null;
   if(bal <= 0) return 0;
-  const rate = parseFloat(emp.basic_pay_rate) || 0;
-  return Math.round(bal * rate * 100) / 100;
+  const monthly = parseFloat(emp.basic_pay_rate) || 0;
+  const hourly = monthly * 12 / 52 / 40;   // same hourly basis as the rest of Employee 202
+  return Math.round(bal * hourly * 100) / 100;
 }
+
 
 async function setLeaveBalance(employeeId, leaveType){
   const current = balanceRecordFor(employeeId, leaveType);
