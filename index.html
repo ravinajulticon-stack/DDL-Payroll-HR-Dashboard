@@ -2726,7 +2726,7 @@ function buildPayslip(r){
     +     '<div class="ps-sub">' + (emp.role || '') + '</div>'
     +     '<div class="ps-sub">' + (emp.department || '') + '</div>'
     +     '<div class="ps-sub">' + (emp.employee_id || '') + '</div>'
-    +     '<div class="ps-sub">' + (emp.pagibig || '') + '</div>'
+    +     '<div class="ps-sub">' + (emp.work_email || '') + '</div>'
     +   '</div>'
     +   '<div class="ps-grid">'
     +     '<div><div class="ps-lbl">Pay Date</div><div class="ps-val">' + r.pay_date + '</div></div>'
@@ -3483,7 +3483,7 @@ function render(){
       <td>${statusPillOrSelect(rec)}</td>
       <td>${field(rec,'exit_date','','date')}</td>
       <td>${leavePayoutCell(rec)}</td>
-      <td>${field(rec,'pagibig','name@company.com','email')}</td>
+      <td>${field(rec,'work_email','name@company.com','email')}</td>
       <td style="text-align:center"><input type="checkbox" ${rec.sss_enrolled?'checked':''} onchange="toggleSss('${rec.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;min-width:0"></td>
       <td>${moneyField(rec,'sss_amount','Amount')}</td>
       <td style="text-align:center"><input type="checkbox" ${rec.home_office?'checked':''} onchange="toggleHomeOffice('${rec.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;min-width:0"></td>
