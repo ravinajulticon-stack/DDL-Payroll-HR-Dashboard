@@ -2988,11 +2988,28 @@ function renderPay202(){
         d.maxicare ? fmtMoney(d.maxicare) : '\u2014',
         d.sssPHP ? fmtMoney(d.sssPHP) : '\u2014',
         d.thirteenth ? fmtMoney(d.thirteenth) : '\u2014',
+        d.loanPHP ? `<span title="Salary loan installment" style="color:var(--amber)">${fmtMoney(d.loanPHP)}</span>` : '\u2014',
         d.otherPHP ? fmtMoney(d.otherPHP) : '\u2014',
         d.note||'',
         d.totalPHP ? fmtMoney(d.totalPHP) : '\u2014',
-        cv(d.totalPayout)
+        cv(d.totalPayout),
+        (d.totalPayout != null && pay202AudRate) ? fmtMoney(d.totalPayout / pay202AudRate) : '\u2014',
+        (d.totalPayout != null && d.eburyRate) ? fmtMoney(d.totalPayout / d.eburyRate) : '\u2014'
       ];
+      runTotals.monthlyPay  += d.monthlyPayUSD || 0;
+      runTotals.homeOffice  += d.homeOfficeUSD || 0;
+      runTotals.doublePay   += d.doublePay || 0;
+      runTotals.othersUSD   += d.othersUSD || 0;
+      runTotals.overtime    += d.overtimeUSD || 0;
+      runTotals.leavePayout += d.leavePayoutUSD || 0;
+      runTotals.bankFees    += d.bankFees || 0;
+      runTotals.maxicare    += d.maxicare || 0;
+      runTotals.sss         += d.sssPHP || 0;
+      runTotals.thirteenth  += d.thirteenth || 0;
+      runTotals.loan        += d.loanPHP || 0;
+      runTotals.otherPHP    += d.otherPHP || 0;
+      runTotals.payoutAUD   += (d.totalPayout != null && pay202AudRate) ? d.totalPayout / pay202AudRate : 0;
+      runTotals.payoutUSD   += (d.totalPayout != null && d.eburyRate) ? d.totalPayout / d.eburyRate : 0;
       runTotals.totalUSD    += d.totalUSD    || 0;
       runTotals.eburyPHP    += d.eburyPHP    || 0;
       runTotals.totalPHP    += d.totalPHP    || 0;
