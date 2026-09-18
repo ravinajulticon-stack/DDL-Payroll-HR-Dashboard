@@ -579,14 +579,15 @@ body {
 .eyc-count-val{ font-size:22px; font-weight:700; }
 .eyc-count-lbl{ font-size:10px; text-transform:uppercase; letter-spacing:0.3px; color:var(--text-2); margin-top:2px; }
 .eyc-cal-scroll{ overflow-x:auto; padding:4px 18px 12px; }
-.eyc-cal-table{ border-collapse:collapse; }
-.eyc-cal-table th, .eyc-cal-table td{ border:1px solid var(--border); width:34px; height:34px; text-align:center; font-size:13px; padding:0; box-sizing:border-box; }
-.eyc-cal-table th{ background:var(--surface-2); color:var(--text-2); font-weight:600; font-size:11px; }
-.eyc-month-col{ width:110px !important; text-align:left !important; padding-left:10px !important; font-weight:700; color:var(--text); font-size:13px; background:var(--surface-2); position:sticky; left:0; z-index:1; }
-.eyc-cal-table td.wknd{ background:var(--surface-2); color:var(--text-3); }
-.eyc-cal-table th.wknd{ background:var(--surface-3); }
-.eyc-cal-table td.blank{ background:transparent; border-color:transparent; }
-.eyc-cal-table td.today{ box-shadow:inset 0 0 0 2px var(--blue); font-weight:700; }
+.eyc-cal-table{ border-collapse:separate; border-spacing:3px; }
+.eyc-cal-table th, .eyc-cal-table td{ width:34px; height:34px; text-align:center; font-size:13px; padding:0; box-sizing:border-box; border:none; }
+.eyc-cal-table th{ color:var(--text-3); font-weight:600; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; background:transparent; }
+.eyc-cal-table td{ background:var(--surface-2); border:0.5px solid var(--border-strong); border-top:2px solid var(--blue); border-radius:var(--radius); color:var(--text); font-weight:600; box-shadow:0 1px 4px rgba(0,0,0,0.25), 0 0 0 0.5px rgba(255,255,255,0.03) inset; }
+.eyc-month-col{ width:110px !important; text-align:left !important; padding-left:12px !important; font-weight:700; color:var(--text); font-size:13px; background:var(--surface-2) !important; border:0.5px solid var(--border-strong) !important; border-top:0.5px solid var(--border-strong) !important; border-radius:var(--radius); box-shadow:none !important; position:sticky; left:0; z-index:1; }
+.eyc-cal-table td.wknd{ background:var(--surface-1); color:var(--text-3); font-weight:400; border-top:2px solid var(--surface-3); box-shadow:none; }
+.eyc-cal-table th.wknd{ color:var(--text-3); opacity:0.6; }
+.eyc-cal-table td.blank{ background:transparent; border:none; box-shadow:none; }
+.eyc-cal-table td.today{ border-top-color:#409cff; box-shadow:0 0 0 2px rgba(10,132,255,0.5), 0 1px 6px rgba(10,132,255,0.3); font-weight:700; }
 .eyc-net{ padding:10px 18px 16px; font-size:12px; color:var(--text-2); border-top:0.5px solid var(--border); margin-top:4px; }
 .eyc-net b{ color:var(--text); font-size:14px; }
 
@@ -1965,7 +1966,7 @@ function renderEmpYearCalGrid(entries, year){
       if(dayEntries.length){
         const ty = dayEntries[0].leave_type;
         const color = EYC_TYPE_COLORS[ty] || '#8e8e93';
-        style = `background:${color};color:#0b0b0d;font-weight:700`;
+        style = `background:${color};color:#0b0b0d;font-weight:700;border-top-color:${color};box-shadow:0 1px 6px rgba(0,0,0,0.35)`;
       } else if(isW){ cls = 'wknd'; }
       if(ds === todayStr) cls += ' today';
       const title = dayEntries.length ? dayEntries.map(e=>`${e.leave_type} \u00b7 ${e.hours}h`).join(', ') : '';
