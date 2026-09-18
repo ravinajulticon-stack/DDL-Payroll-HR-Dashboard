@@ -754,6 +754,7 @@ body {
       </div>
     </div>
     <div id="leaveBalancesBody" style="margin-bottom:16px"></div>
+    <div id="vicHolidaysBody" style="margin-bottom:16px"></div>
     <div id="leaveBody"></div>
   </div>
 
@@ -836,6 +837,8 @@ let historyLoaded = false;
 let timesheetEntriesLoaded = false;
 let pay202EburyRateLoaded = false;
 let leaveEntriesLoaded = false;
+let vicHolidaysLoaded = false;
+let VIC_HOLIDAYS = []; // [{date, name}] — VIC public holidays for Double Pay auto-computation
 function switchView(view, btn){
   currentView = view;
   document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
@@ -868,7 +871,12 @@ function switchView(view, btn){
     loadLeaveEntries();
   } else if(view === 'leave'){
     renderLeaveBalancesPanel();
+    renderVicHolidaysPanel();
     renderLeavePanel();
+  }
+  if((view === 'leave' || view === 'pay202') && !vicHolidaysLoaded){
+    vicHolidaysLoaded = true;
+    loadVicHolidays();
   }
   if(view === 'pay202' && !pay202EburyRateLoaded){
     pay202EburyRateLoaded = true;
@@ -1609,6 +1617,67 @@ async function setLeaveBalance(employeeId, leaveType){
   await loadLeaveEntries();
 }
 
+async function loadVicHolidays(){
+  const { data, error } = await sb.from('vic_holidays').select('date,name').order('date');
+  if(!error && data) VIC_HOLIDAYS = data;
+  renderVicHolidaysPanel();
+}
+
+async function addVicHoliday(){
+  const dateVal = document.getElementById('vicHolidayDateInput').value;
+  const nameVal = document.getElementById('vicHolidayNameInput').value.trim();
+  if(!dateVal || !nameVal){ alert('Please enter both a date and a name.'); return; }
+  const { error } = await sb.from('vic_holidays').insert({ date: dateVal, name: nameVal });
+  if(error){ alert('Could not add holiday: ' + error.message); return; }
+  document.getElementById('vicHolidayDateInput').value = '';
+  document.getElementById('vicHolidayNameInput').value = '';
+  await loadVicHolidays();
+}
+
+async function deleteVicHoliday(date){
+  if(!confirm(`Remove ${date} from VIC Holidays?`)) return;
+  const { error } = await sb.from('vic_holidays').delete().eq('date', date);
+  if(error){ alert('Could not remove holiday: ' + error.message); return; }
+  VIC_HOLIDAYS = VIC_HOLIDAYS.filter(h => h.date !== date);
+  renderVicHolidaysPanel();
+}
+
+function renderVicHolidaysPanel(){
+  const container = document.getElementById('vicHolidaysBody');
+  if(!container) return;
+  const rows = VIC_HOLIDAYS.map(h => `<tr>
+    <td>${h.date}</td>
+    <td>${h.name}</td>
+    <td><button class="del-btn" title="Remove" onclick="deleteVicHoliday('${h.date}')">✕</button></td>
+  </tr>`).join('');
+  container.innerHTML = `
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">VIC Public Holidays</span>
+        <span class="rec-count">${VIC_HOLIDAYS.length} date${VIC_HOLIDAYS.length!==1?'s':''} · Double Pay auto-computes when employees work these days</span>
+      </div>
+      <div class="card-body" style="padding:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div>
+          <label class="wk-label" style="display:block;margin-bottom:4px">Date</label>
+          <input type="date" class="search-box" id="vicHolidayDateInput" style="width:150px">
+        </div>
+        <div>
+          <label class="wk-label" style="display:block;margin-bottom:4px">Name</label>
+          <input type="text" class="search-box" id="vicHolidayNameInput" placeholder="e.g. AFL Grand Final Friday" style="width:220px">
+        </div>
+        <button class="btn-primary" onclick="addVicHoliday()">Add Holiday</button>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div class="tbl-scroll" style="max-height:220px">
+          <table class="rec-table">
+            <thead><tr><th>Date</th><th>Name</th><th style="width:40px"></th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="3" style="text-align:center;color:var(--text-3);padding:16px">No holidays recorded yet.</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+}
+
 function renderLeaveBalancesPanel(){
   const container = document.getElementById('leaveBalancesBody');
   if(!container) return;
@@ -1945,7 +2014,16 @@ function renderPay202(){
     const sssPHP = emp.sss_enrolled ? (parseFloat(emp.sss_amount) || 0) : 0;
 
     // Manual per-period figures.
-    const doublePay = pay202Val(emp.id, 'double_pay') || 0;
+    // Auto-compute Double Pay: 1× extra hourly for each hour worked on a VIC public holiday in this period.
+    const { start: pStart, end: pEnd } = periodBounds(pay202SelectedPeriod);
+    const pStartStr = pStart.toISOString().slice(0,10);
+    const pEndStr   = pEnd.toISOString().slice(0,10);
+    let doublePayNative = 0;
+    VIC_HOLIDAYS.filter(h => h.date >= pStartStr && h.date <= pEndStr).forEach(h => {
+      const tsEntry = TIMESHEET_ENTRIES.find(t => t.employee_id === emp.id && t.work_date === h.date);
+      if(tsEntry){ doublePayNative += hourlyRate * (parseFloat(tsEntry.hours_worked) || 0); }
+    });
+    const doublePay = currency === 'USD' ? doublePayNative : (rate ? doublePayNative / rate : 0);
     const othersUSD = pay202Val(emp.id, 'others_usd') || 0;
     const bankFees  = BANK_FEE_USD;
     const thirteenth = pay202Val(emp.id, 'thirteenth') || 0;
@@ -1961,7 +2039,7 @@ function renderPay202(){
     const cells = [
       pay202MonthlyPayCell(monthlyPayUSD, regularHours, standardHours), // Monthly Pay
       homeOfficeUSD ? fmtMoney(homeOfficeUSD) : '\u2014', // Home Office
-      pay202MoneyCell(emp.id, 'double_pay'),            // Double Pay
+      doublePayNative > 0 ? `<span title="VIC Holiday Double Pay (1× extra for ${VIC_HOLIDAYS.filter(h=>h.date>=pStartStr&&h.date<=pEndStr&&TIMESHEET_ENTRIES.some(t=>t.employee_id===emp.id&&t.work_date===h.date)).map(h=>h.name).join(', ')}">${fmtMoney(doublePay)}</span>` : '—', // Double Pay (auto)
       pay202MoneyCell(emp.id, 'others_usd'),            // Others (USD)
       overtimeUSD ? fmtMoney(overtimeUSD) : '\u2014',   // Overtime
       leavePayoutUSD ? `<span title="Annual Leave payout on exit">${fmtMoney(leavePayoutUSD)}</span>` : '\u2014', // Leave Payout
@@ -1983,7 +2061,7 @@ function renderPay202(){
     runTotals.totalPayout += totalPayout || 0;
     if(totalPayout != null) runTotals.counted++;
 
-    const hasManualEntry = !!(doublePay || othersUSD || thirteenth || otherPHP || (pay202EntryFor(emp.id) && pay202EntryFor(emp.id).note));
+    const hasManualEntry = !!(othersUSD || thirteenth || otherPHP || (pay202EntryFor(emp.id) && pay202EntryFor(emp.id).note));
     return `<tr${hasManualEntry ? ' class="pay202-has-entry"' : ''}><td>${emp.name}${hasManualEntry ? ' <span class="pay202-entry-dot" title="Has manual entries this period"></span>' : ''}</td>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
   }).join('');
 
