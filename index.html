@@ -1809,7 +1809,7 @@ function renderLeavePanel(){
 ══════════════════════════════════════ */
 const PAY202_COLUMNS = [
   'Monthly Pay', 'Home Office', 'Double Pay', 'Others (USD)', 'Overtime', 'Leave Payout', 'Bank Fees',
-  'Total USD', 'Ebury USD/PHP', 'Note', 'Maxicare', 'SSS', '13th', 'Other (PHP)',
+  'Total USD', 'Ebury USD/PHP', 'Maxicare', 'SSS', '13th', 'Other (PHP)', 'Note',
   'Total PHP', 'Total Payout', 'Paid'
 ];
 // Fixed, non-editable: every employee incurs a flat $5 USD bank fee every period.
@@ -2066,11 +2066,11 @@ function renderPay202(){
         d.leavePayoutUSD ? fmtMoney(d.leavePayoutUSD) : '\u2014',
         fmtMoney(d.bankFees),
         cv(d.totalUSD), cv(d.eburyPHP),
-        d.note||'',
         d.maxicare ? fmtMoney(d.maxicare) : '\u2014',
         d.sssPHP ? fmtMoney(d.sssPHP) : '\u2014',
         d.thirteenth ? fmtMoney(d.thirteenth) : '\u2014',
         d.otherPHP ? fmtMoney(d.otherPHP) : '\u2014',
+        d.note||'',
         d.totalPHP ? fmtMoney(d.totalPHP) : '\u2014',
         cv(d.totalPayout)
       ];
@@ -2173,11 +2173,11 @@ function renderPay202(){
       fmtMoney(bankFees),                               // Bank Fees (fixed $5, non-editable)
       cell(totalUSD),                                   // Total USD
       cell(eburyPHP),                                   // Ebury USD/PHP
-      pay202NoteCell(emp.id),                           // Note
       maxicare ? fmtMoney(maxicare) : '\u2014',         // Maxicare
       sssPHP ? fmtMoney(sssPHP) : '\u2014',             // SSS
       pay202MoneyCell(emp.id, 'thirteenth'),            // 13th
       pay202MoneyCell(emp.id, 'other_php'),             // Other (PHP)
+      pay202NoteCell(emp.id),                           // Note
       totalPHP ? fmtMoney(totalPHP) : '\u2014',         // Total PHP
       cell(totalPayout)                                 // Total Payout
     ];
