@@ -2945,9 +2945,9 @@ function renderPay202(){
   if(!periodInput.value) periodInput.value = pay202SelectedPeriod;
 
   const rateInput = document.getElementById('pay202EburyRateInput');
-  rateInput.value = pay202EburyRate != null ? pay202EburyRate : '';
+  rateInput.value = pay202EburyRate != null ? Number(pay202EburyRate).toFixed(4) : '';
   const audInput = document.getElementById('pay202AudRateInput');
-  if(audInput) audInput.value = pay202AudRate != null ? pay202AudRate : '';
+  if(audInput) audInput.value = pay202AudRate != null ? Number(pay202AudRate).toFixed(4) : '';
 
   const rangeLabel = document.getElementById('pay202RangeLabel');
   if(rangeLabel) rangeLabel.textContent = fmtPeriodLabel(pay202SelectedPeriod + '-01');
