@@ -2766,7 +2766,7 @@ function renderPayslipPanel(){
     +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Pay Period</label>'
     +       '<input type="month" class="search-box" id="payslipPeriodInput" min="' + MIN_OPEN_PERIOD + '" value="' + payslipPeriod + '" style="width:160px"></div>'
     +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Employee</label>'
-    +       '<select class="search-box" id="payslipEmpSelect" style="min-width:190px"><option value="">All employees</option>'
+    +       '<select class="search-box" id="payslipEmpSelect" style="min-width:190px"><option value="">All Employees</option>'
     +       names.map(function(n){ return '<option value="' + n + '"' + (n===payslipEmp?' selected':'') + '>' + n + '</option>'; }).join('') + '</select></div>'
     +     '<button class="io-btn primary" onclick="printPayslips()">Print / Save PDF</button>'
     +     '<button class="io-btn" id="psBulkBtn" onclick="downloadAllPayslips()" title="Saves one PDF per employee">Download All (separate PDFs)</button>'
