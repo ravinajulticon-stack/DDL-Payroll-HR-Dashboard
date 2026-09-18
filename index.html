@@ -1744,6 +1744,12 @@ function monthlyAccrualSince(seedDate, asOf, rate){
 function leaveBalanceAsOf(employeeId, leaveType, asOfDate){
   const rec = balanceRecordFor(employeeId, leaveType);
   if(!rec) return null;
+  // Leave stops accruing on an employee's exit date.
+  const _e = EMP201.find(x => x.id === employeeId);
+  if(_e && _e.exit_date){
+    const _exit = new Date(_e.exit_date + 'T00:00:00');
+    if(asOfDate > _exit) asOfDate = _exit;
+  }
   const seedDate = new Date(rec.seed_date + 'T00:00:00');
   const rate = BALANCE_ACCRUAL_RATE[leaveType] || 0;
   const accrued = monthlyAccrualSince(seedDate, asOfDate, rate);
