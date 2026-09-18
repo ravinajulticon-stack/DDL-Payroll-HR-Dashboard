@@ -1726,11 +1726,15 @@ function renderLeaveBalancesPanel(){
     { name:'Personal Leave', short:'Personal' }
   ];
 
+  // Balance as of the end of the selected period (10th of the period month)
+  const [lbY, lbM] = leaveSelectedPeriod.split('-').map(Number);
+  const lbAsOf = new Date(lbY, lbM - 1, 10); // 10th of the pay period month
+
   const tiles = employees.map(emp => {
     const firstName = emp.name.split(' ')[0];
     const lastInit  = (emp.name.split(' ')[1] || '')[0] || '';
     const sections = LB_TYPES.map((t, idx) => {
-      const bal = currentLeaveBalance(emp.id, t.name);
+      const bal = leaveBalanceAsOf(emp.id, t.name, lbAsOf);
       const valHtml = bal === null
         ? `<span style="font-size:12px;color:var(--amber)">— Not set</span>`
         : `<span class="lb-tile-val${idx===1?' lb-sub':''}">${fmtHrs(bal)}</span>`;
