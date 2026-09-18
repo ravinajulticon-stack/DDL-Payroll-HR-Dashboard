@@ -687,21 +687,23 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
 .pay202-paid-row td:last-child{ opacity:1; }
 .pay202-table th:nth-child(4), .pay202-table td:nth-child(4){ width:100px; }
 .pay202-table th:nth-child(5), .pay202-table td:nth-child(5){ width:100px; }
-.pay202-table th:nth-child(6), .pay202-table td:nth-child(6){ width:90px; }
-.pay202-table th:nth-child(7), .pay202-table td:nth-child(7){ width:100px; }
-.pay202-table th:nth-child(8), .pay202-table td:nth-child(8){ width:90px; }
-.pay202-table th:nth-child(9), .pay202-table td:nth-child(9){ width:100px; }
-.pay202-table th:nth-child(10), .pay202-table td:nth-child(10){ width:110px; }
-.pay202-table th:nth-child(11), .pay202-table td:nth-child(11){ width:130px; }
-.pay202-table th:nth-child(12), .pay202-table td:nth-child(12){ width:100px; }
-.pay202-table th:nth-child(13), .pay202-table td:nth-child(13){ width:90px; }
-.pay202-table th:nth-child(14), .pay202-table td:nth-child(14){ width:100px; }
+.pay202-table th:nth-child(6), .pay202-table td:nth-child(6){ width:170px; }
+.pay202-table td:nth-child(6) input{ width:100%; }
+.pay202-table th:nth-child(7), .pay202-table td:nth-child(7){ width:90px; }
+.pay202-table th:nth-child(8), .pay202-table td:nth-child(8){ width:100px; }
+.pay202-table th:nth-child(9), .pay202-table td:nth-child(9){ width:90px; }
+.pay202-table th:nth-child(10), .pay202-table td:nth-child(10){ width:100px; }
+.pay202-table th:nth-child(11), .pay202-table td:nth-child(11){ width:110px; }
+.pay202-table th:nth-child(12), .pay202-table td:nth-child(12){ width:130px; }
+.pay202-table th:nth-child(13), .pay202-table td:nth-child(13){ width:100px; }
+.pay202-table th:nth-child(14), .pay202-table td:nth-child(14){ width:90px; }
 .pay202-table th:nth-child(15), .pay202-table td:nth-child(15){ width:100px; }
-.pay202-table th:nth-child(16), .pay202-table td:nth-child(16){ width:240px; }
+.pay202-table th:nth-child(16), .pay202-table td:nth-child(16){ width:100px; }
+.pay202-table th:nth-child(17), .pay202-table td:nth-child(17){ width:240px; }
 .pay202-table td:nth-child(16) input{ width:100%; }
-.pay202-table th:nth-child(17), .pay202-table td:nth-child(17){ width:100px; }
-.pay202-table th:nth-child(20), .pay202-table td:nth-child(20){ width:110px; }
+.pay202-table th:nth-child(18), .pay202-table td:nth-child(18){ width:100px; }
 .pay202-table th:nth-child(21), .pay202-table td:nth-child(21){ width:110px; }
+.pay202-table th:nth-child(22), .pay202-table td:nth-child(22){ width:110px; }
 .pay202-table th:nth-child(17), .pay202-table td:nth-child(17){ width:120px; font-weight:700; color:var(--blue-light); }
 .rec-table thead th{
   position:sticky; top:0; z-index:2;
@@ -2684,7 +2686,8 @@ function buildPayslip(r){
   rows += psLine('Double Pay', null, null, r.double_pay, toPhp(r.double_pay||0));
   rows += psLine('Leave Payout', null, null, r.vacation_pay, toPhp(r.vacation_pay||0));
   rows += psLine('Home Office', 1, r.home_office, r.home_office, toPhp(r.home_office||0));
-  rows += psLine('Others (USD)', null, null, r.others_usd, toPhp(r.others_usd||0));
+  var noteU = r.note_usd ? 'Others (USD)<span class="ps-note">' + r.note_usd + '</span>' : 'Others (USD)';
+  rows += psLine(noteU, null, null, r.others_usd, toPhp(r.others_usd||0));
   rows += psLine('Bank Fees', 1, r.bank_fees, r.bank_fees, toPhp(r.bank_fees||0));
   var totalUSD = (parseFloat(r.standard_pay)||0)+(parseFloat(r.overtime_pay)||0)+(parseFloat(r.double_pay)||0)+(parseFloat(r.vacation_pay)||0)+(parseFloat(r.home_office)||0)+(parseFloat(r.others_usd)||0)+(parseFloat(r.bank_fees)||0);
   var eburyPhp = toPhp(totalUSD);
@@ -2695,7 +2698,8 @@ function buildPayslip(r){
   var qLabel = MN[((qEnd-3)+12)%12] + ' – ' + MN[qEnd-1];
   var thNote = '13th Month<span class="ps-note">' + qLabel + ' quarter · one quarter of monthly basic, pro-rated by months active</span>';
   addRows += psLine(thNote, null, null, null, r.thirteenth_php);
-  addRows += psLine('Others (PHP)', null, null, null, r.others_php);
+  var noteP = r.note ? 'Others (PHP)<span class="ps-note">' + r.note + '</span>' : 'Others (PHP)';
+  addRows += psLine(noteP, null, null, null, r.others_php);
   var addTotal = (parseFloat(r.maxicare_php)||0)+(parseFloat(r.sss_php)||0)+(parseFloat(r.thirteenth_php)||0)+(parseFloat(r.others_php)||0);
   var loan = parseFloat(r.loan_php) || 0;
   var dedRows = psLine('Salary Loan', null, null, null, loan);
@@ -2852,7 +2856,7 @@ function renderLeavePanel(){
    EMPLOYEE 202 (Final Payout: Monthly Pay, Overtime & Maxicare linked; rest pending rules)
 ══════════════════════════════════════ */
 const PAY202_COLUMNS = [
-  'Monthly Pay', 'Home Office', 'Double Pay', 'Others (USD)', 'Overtime', 'Leave Payout', 'Bank Fees',
+  'Monthly Pay', 'Home Office', 'Double Pay', 'Others (USD)', 'Note (USD)', 'Overtime', 'Leave Payout', 'Bank Fees',
   'Total USD', 'Ebury USD/PHP', 'Maxicare', 'SSS', '13th', 'Loan', 'Other (PHP)', 'Note',
   'Total PHP', 'Total Payout', 'AUD', 'USD', 'Paid'
 ];
@@ -2918,7 +2922,8 @@ async function syncToEmployee500(emp, d, periodStr){
     ebury_rate: d.eburyRate || null,
     total_payout: d.totalPayout || 0,
     status: 'Paid',
-    note: d.note || null
+    note: d.note || null,
+    note_usd: d.noteUsd || null
   };
   await sb.from('employee_500').delete().eq('employee_name', emp.name).eq('pay_date', payDate);
   const { error } = await sb.from('employee_500').insert(row);
@@ -2988,6 +2993,7 @@ async function markAsPaid(empId){
   const otherPHP=pay202Val(emp.id,'other_php')||0;
   const bankFees=BANK_FEE_USD;
   const note=(pay202EntryFor(emp.id)&&pay202EntryFor(emp.id).note)||'';
+  const noteUsd=(pay202EntryFor(emp.id)&&pay202EntryFor(emp.id).note_usd)||'';
   const totalUSD=(monthlyPayUSD!=null&&overtimeUSD!=null&&(leavePayoutNative===0||leavePayoutUSD!=null))
     ?(monthlyPayUSD+homeOfficeUSD+doublePay+othersUSD+overtimeUSD+(leavePayoutUSD||0)+bankFees):null;
   const eburyPHP=(totalUSD!=null&&rate)?totalUSD*rate:null;
@@ -2995,7 +3001,7 @@ async function markAsPaid(empId){
   const loanPHP=-((_ld.php||0)+((rate&&_ld.usd)?_ld.usd*rate:0));
   const totalPHP=maxicare+sssPHP+thirteenth+loanPHP+otherPHP;
   const totalPayout=eburyPHP!=null?eburyPHP+totalPHP:null;
-  const snapData={ loanPHP,basicRate,currency,regularHours,unpaidLeaveHours,totalOt,standardHours,blankHours,
+  const snapData={ noteUsd,loanPHP,basicRate,currency,regularHours,unpaidLeaveHours,totalOt,standardHours,blankHours,
     hourlyRate,nativeMonthlyPay,overtimeNative,doublePayNative,doublePay,
     monthlyPayUSD,overtimeUSD,leavePayoutNative,leavePayoutUSD,
     homeOfficeUSD,maxicare,sssPHP,bankFees,othersUSD,thirteenth,otherPHP,note,
@@ -3060,7 +3066,7 @@ function pay202Val(employeeId, key){
 async function savePay202Entry(employeeId, key, rawVal){
   const periodMonth = pay202SelectedPeriod + '-01';
   let val;
-  if(key === 'note'){
+  if(key === 'note' || key === 'note_usd'){
     val = (rawVal || '').toString().trim() || null;
   } else {
     const cleaned = (rawVal || '').toString().replace(/,/g, '').trim();
@@ -3139,11 +3145,11 @@ function pay202MonthlyPayCell(val, regularHours, standardHours){
   return `<span title="${title}"${short ? ' style="color:var(--amber)"' : ''}>${fmtMoney(val)}</span>`;
 }
 
-function pay202NoteCell(employeeId){
+function pay202NoteCell(employeeId, field){
   const e = pay202EntryFor(employeeId);
   const val = (e && e.note ? e.note : '').toString().replace(/"/g,'&quot;');
   return `<input type="text" class="pay202-input pay202-note" value="${val}" placeholder="\u2014"
-    onchange="savePay202Entry('${employeeId}','note',this.value)"
+    onchange="savePay202Entry('${employeeId}',(field || 'note'),this.value)"
     onkeydown="if(event.key==='Enter') this.blur()">`;
 }
 
@@ -3201,6 +3207,7 @@ function renderPay202(){
         d.homeOfficeUSD ? fmtMoney(d.homeOfficeUSD) : '\u2014',
         d.doublePayNative>0 ? fmtMoney(d.doublePay) : '\u2014',
         d.othersUSD ? fmtMoney(d.othersUSD) : '\u2014',
+        d.noteUsd || '',
         d.overtimeUSD ? fmtMoney(d.overtimeUSD) : '\u2014',
         d.leavePayoutUSD ? fmtMoney(d.leavePayoutUSD) : '\u2014',
         fmtMoney(d.bankFees),
@@ -3351,6 +3358,7 @@ function renderPay202(){
       homeOfficeUSD ? fmtMoney(homeOfficeUSD) : '\u2014', // Home Office
       doublePayNative > 0 ? `<span title="VIC Holiday Double Pay (1× extra for ${VIC_HOLIDAYS.filter(h=>h.date>=pStartStr&&h.date<=pEndStr&&TIMESHEET_ENTRIES.some(t=>t.employee_id===emp.id&&t.work_date===h.date)).map(h=>h.name).join(', ')}">${fmtMoney(doublePay)}</span>` : '—', // Double Pay (auto)
       pay202MoneyCell(emp.id, 'others_usd'),            // Others (USD)
+      pay202NoteCell(emp.id, 'note_usd'),               // Note (USD)
       overtimeUSD ? fmtMoney(overtimeUSD) : '\u2014',   // Overtime
       leavePayoutUSD ? `<span title="Annual Leave payout on exit">${fmtMoney(leavePayoutUSD)}</span>` : '\u2014', // Leave Payout
       fmtMoney(bankFees),                               // Bank Fees (fixed $5, non-editable)
@@ -3400,6 +3408,7 @@ function renderPay202(){
     <td>${runTotals.homeOffice ? fmtMoney(runTotals.homeOffice) : "\u2014"}</td>
     <td>${runTotals.doublePay ? fmtMoney(runTotals.doublePay) : "\u2014"}</td>
     <td>${runTotals.othersUSD ? fmtMoney(runTotals.othersUSD) : "\u2014"}</td>
+    <td></td>
     <td>${runTotals.overtime ? fmtMoney(runTotals.overtime) : "\u2014"}</td>
     <td>${runTotals.leavePayout ? fmtMoney(runTotals.leavePayout) : "\u2014"}</td>
     <td>${runTotals.bankFees ? fmtMoney(runTotals.bankFees) : "\u2014"}</td>
