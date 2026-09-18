@@ -656,6 +656,8 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
 .pay202-table th:nth-child(16), .pay202-table td:nth-child(16){ width:240px; }
 .pay202-table td:nth-child(16) input{ width:100%; }
 .pay202-table th:nth-child(17), .pay202-table td:nth-child(17){ width:100px; }
+.pay202-table th:nth-child(20), .pay202-table td:nth-child(20){ width:110px; }
+.pay202-table th:nth-child(21), .pay202-table td:nth-child(21){ width:110px; }
 .pay202-table th:nth-child(17), .pay202-table td:nth-child(17){ width:120px; font-weight:700; color:var(--blue-light); }
 .rec-table thead th{
   position:sticky; top:0; z-index:2;
@@ -902,6 +904,10 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
           <label class="wk-label" style="display:block;margin-bottom:4px">Ebury Conversion Rate (this period, PHP per USD)</label>
           <input type="text" inputmode="decimal" class="search-box" id="pay202EburyRateInput" placeholder="e.g. 58.50" style="width:140px">
         </div>
+        <div>
+          <label class="wk-label" style="display:block;margin-bottom:4px">AUD Conversion Rate (this period, PHP per AUD)</label>
+          <input type="text" inputmode="decimal" class="search-box" id="pay202AudRateInput" placeholder="e.g. 43.60" style="width:140px">
+        </div>
         <span class="rec-count" id="pay202RangeLabel"></span>
         <span class="rec-count" style="color:var(--amber)">Periods before Sep 2026 are closed &mdash; already paid</span>
       </div>
@@ -953,6 +959,7 @@ let currentView = 'overview';
 let historyLoaded = false;
 let timesheetEntriesLoaded = false;
 let pay202EburyRateLoaded = false;
+let pay202AudRate = null;
 let leaveEntriesLoaded = false;
 let vicHolidaysLoaded = false;
 let VIC_HOLIDAYS = []; // [{date, name}] — VIC public holidays for Double Pay auto-computation
@@ -2627,7 +2634,7 @@ function renderLeavePanel(){
 const PAY202_COLUMNS = [
   'Monthly Pay', 'Home Office', 'Double Pay', 'Others (USD)', 'Overtime', 'Leave Payout', 'Bank Fees',
   'Total USD', 'Ebury USD/PHP', 'Maxicare', 'SSS', '13th', 'Loan', 'Other (PHP)', 'Note',
-  'Total PHP', 'Total Payout', 'Paid'
+  'Total PHP', 'Total Payout', 'AUD', 'USD', 'Paid'
 ];
 // Fixed, non-editable: every employee incurs a flat $5 USD bank fee every period.
 const BANK_FEE_USD = 5;
@@ -2649,6 +2656,9 @@ document.getElementById('pay202StatusFilter').addEventListener('change', (e) => 
 });
 document.getElementById('pay202EburyRateInput').addEventListener('change', (e) => {
   savePay202EburyRate(e.target.value);
+});
+document.getElementById('pay202AudRateInput').addEventListener('change', (e) => {
+  savePay202AudRate(e.target.value);
 });
 
 async function loadPay202Snapshots(){
@@ -2755,6 +2765,7 @@ async function loadPay202EburyRate(){
   const { data, error } = await sb.from('pay202_period_rates').select('*').eq('period_month', periodMonth).maybeSingle();
   if(error){ alert('Could not load Ebury rate: ' + error.message); }
   pay202EburyRate = (data && data.ebury_rate != null) ? parseFloat(data.ebury_rate) : null;
+  pay202AudRate = (data && data.aud_rate != null) ? parseFloat(data.aud_rate) : null;
   await loadPay202Entries();
   await loadPay202Snapshots();
 }
@@ -2827,6 +2838,24 @@ async function savePay202EburyRate(val){
   if(error){ alert('Could not save Ebury rate: ' + error.message); return; }
   renderPay202();
 }
+async function savePay202AudRate(val){
+  const trimmed = (val || '').toString().trim();
+  const periodMonth = pay202SelectedPeriod + '-01';
+  if(trimmed === ''){
+    pay202AudRate = null;
+    const { error } = await sb.from('pay202_period_rates').delete().eq('period_month', periodMonth);
+    if(error){ alert('Could not clear AUD rate: ' + error.message); }
+    renderPay202();
+    return;
+  }
+  const num = parseFloat(trimmed);
+  if(isNaN(num)){ alert('Please enter a valid rate.'); renderPay202(); return; }
+  pay202AudRate = num;
+  const { error } = await sb.from('pay202_period_rates')
+    .upsert({ period_month: periodMonth, aud_rate: num, updated_at: new Date().toISOString() }, { onConflict: 'period_month' });
+  if(error){ alert('Could not save AUD rate: ' + error.message); return; }
+  renderPay202();
+}
 
 function pay202MoneyCell(employeeId, key){
   const val = pay202Val(employeeId, key);
@@ -2860,6 +2889,8 @@ function renderPay202(){
 
   const rateInput = document.getElementById('pay202EburyRateInput');
   rateInput.value = pay202EburyRate != null ? pay202EburyRate : '';
+  const audInput = document.getElementById('pay202AudRateInput');
+  if(audInput) audInput.value = pay202AudRate != null ? pay202AudRate : '';
 
   const rangeLabel = document.getElementById('pay202RangeLabel');
   if(rangeLabel) rangeLabel.textContent = fmtPeriodLabel(pay202SelectedPeriod + '-01');
@@ -2888,7 +2919,7 @@ function renderPay202(){
   const days = weekdaysInPeriod(pay202SelectedPeriod);
   const cell = (val) => val == null ? '\u2014' : fmtMoney(val);
 
-  const runTotals = { monthlyPay:0, homeOffice:0, doublePay:0, othersUSD:0, overtime:0, leavePayout:0, bankFees:0, totalUSD: 0, eburyPHP: 0, maxicare:0, sss:0, thirteenth:0, loan:0, otherPHP:0, totalPHP: 0, totalPayout: 0, counted: 0 };
+  const runTotals = { monthlyPay:0, homeOffice:0, doublePay:0, othersUSD:0, overtime:0, leavePayout:0, bankFees:0, totalUSD: 0, eburyPHP: 0, maxicare:0, sss:0, thirteenth:0, loan:0, otherPHP:0, totalPHP: 0, totalPayout: 0, payoutAUD: 0, payoutUSD: 0, counted: 0 };
 
   const headerCells = PAY202_COLUMNS.map(c => `<th>${c}</th>`).join('');
   const bodyRows = employees.map(emp => {
@@ -3048,9 +3079,13 @@ function renderPay202(){
       pay202MoneyCell(emp.id, 'other_php'),             // Other (PHP)
       pay202NoteCell(emp.id),                           // Note
       totalPHP ? fmtMoney(totalPHP) : '\u2014',         // Total PHP
-      cell(totalPayout)                                 // Total Payout
+      cell(totalPayout),                                // Total Payout
+      (totalPayout != null && pay202AudRate) ? fmtMoney(totalPayout / pay202AudRate) : '\u2014',   // AUD
+      (totalPayout != null && rate) ? fmtMoney(totalPayout / rate) : '\u2014'                      // USD
     ];
 
+    runTotals.payoutAUD   += (totalPayout != null && pay202AudRate) ? totalPayout / pay202AudRate : 0;
+    runTotals.payoutUSD   += (totalPayout != null && rate) ? totalPayout / rate : 0;
     runTotals.monthlyPay  += monthlyPayUSD || 0;
     runTotals.homeOffice  += homeOfficeUSD || 0;
     runTotals.doublePay   += doublePay || 0;
@@ -3094,6 +3129,8 @@ function renderPay202(){
     <td></td>
     <td>${fmtMoney(runTotals.totalPHP)}</td>
     <td>${fmtMoney(runTotals.totalPayout)}</td>
+    <td>${runTotals.payoutAUD ? fmtMoney(runTotals.payoutAUD) : "\u2014"}</td>
+    <td>${runTotals.payoutUSD ? fmtMoney(runTotals.payoutUSD) : "\u2014"}</td>
     <td></td>
   </tr>`;
 
