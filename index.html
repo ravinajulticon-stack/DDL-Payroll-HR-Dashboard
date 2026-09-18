@@ -1692,15 +1692,66 @@ async function deleteVicHoliday(date){
   renderVicHolidaysPanel();
 }
 
+function easterDate(year){
+  const a=year%19,b=Math.floor(year/100),c=year%100;
+  const d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
+  const g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30;
+  const i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7;
+  const mm=Math.floor((a+11*h+22*l)/451);
+  const mo=Math.floor((h+l-7*mm+114)/31),dy=((h+l-7*mm+114)%31)+1;
+  return new Date(year,mo-1,dy);
+}
+function stdVicHolidays(year){
+  const p=(n)=>String(n).padStart(2,'0');
+  const ds=(y,mo,d)=>`${y}-${p(mo)}-${p(d)}`;
+  const obs=(d)=>{const w=d.getDay();if(w===6)d.setDate(d.getDate()+2);else if(w===0)d.setDate(d.getDate()+1);return d;};
+  const holidays=[];
+  const ny=obs(new Date(year,0,1));holidays.push({date:ds(ny.getFullYear(),ny.getMonth()+1,ny.getDate()),name:"New Year's Day"});
+  const ad=obs(new Date(year,0,26));holidays.push({date:ds(ad.getFullYear(),ad.getMonth()+1,ad.getDate()),name:"Australia Day"});
+  let ld=new Date(year,2,1);while(ld.getDay()!==1)ld.setDate(ld.getDate()+1);ld.setDate(ld.getDate()+7);
+  holidays.push({date:ds(year,3,ld.getDate()),name:"Labour Day"});
+  const ea=easterDate(year);
+  const gf=new Date(ea);gf.setDate(gf.getDate()-2);
+  const es=new Date(ea);es.setDate(es.getDate()-1);
+  const em=new Date(ea);em.setDate(em.getDate()+1);
+  holidays.push({date:ds(gf.getFullYear(),gf.getMonth()+1,gf.getDate()),name:"Good Friday"});
+  holidays.push({date:ds(es.getFullYear(),es.getMonth()+1,es.getDate()),name:"Easter Saturday"});
+  holidays.push({date:ds(ea.getFullYear(),ea.getMonth()+1,ea.getDate()),name:"Easter Sunday"});
+  holidays.push({date:ds(em.getFullYear(),em.getMonth()+1,em.getDate()),name:"Easter Monday"});
+  const an=obs(new Date(year,3,25));holidays.push({date:ds(an.getFullYear(),an.getMonth()+1,an.getDate()),name:"ANZAC Day"});
+  let kb=new Date(year,5,1);while(kb.getDay()!==1)kb.setDate(kb.getDate()+1);kb.setDate(kb.getDate()+7);
+  holidays.push({date:ds(year,6,kb.getDate()),name:"King's Birthday"});
+  let mc=new Date(year,10,1);while(mc.getDay()!==2)mc.setDate(mc.getDate()+1);
+  holidays.push({date:ds(year,11,mc.getDate()),name:"Melbourne Cup"});
+  const xd=new Date(year,11,25).getDay();
+  let cd=new Date(year,11,25),bd=new Date(year,11,26);
+  if(xd===6){cd=new Date(year,11,27);bd=new Date(year,11,28);}
+  else if(xd===0){cd=new Date(year,11,26);bd=new Date(year,11,27);}
+  else if(xd===5){bd=new Date(year,11,28);}
+  holidays.push({date:ds(cd.getFullYear(),cd.getMonth()+1,cd.getDate()),name:"Christmas Day"});
+  holidays.push({date:ds(bd.getFullYear(),bd.getMonth()+1,bd.getDate()),name:"Boxing Day"});
+  return holidays.sort((a,b)=>a.date.localeCompare(b.date));
+}
+async function autoGenerateVicHolidays(year){
+  const existing=VIC_HOLIDAYS.filter(h=>h.date.startsWith(String(year)));
+  if(existing.length>0&&!confirm(`${existing.length} holidays already exist for ${year}. Replace all?`))return;
+  for(const h of existing){await sb.from('vic_holidays').delete().eq('date',h.date);}
+  const generated=stdVicHolidays(year);
+  const {error}=await sb.from('vic_holidays').insert(generated.map(h=>({date:h.date,name:h.name})));
+  if(error){alert('Could not generate holidays: '+error.message);return;}
+  await loadVicHolidays();
+}
 function renderVicHolidaysPanel(){
-  const container = document.getElementById('vicHolidaysBody');
-  if(!container) return;
-  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const tiles = VIC_HOLIDAYS.map(h => {
-    const parts = h.date.split('-');
-    const day = parseInt(parts[2]);
-    const mon = MONTH_NAMES[parseInt(parts[1])-1];
-    const nameParts = h.name.split(' (')[0];
+  const container=document.getElementById('vicHolidaysBody');
+  if(!container)return;
+  const MONTH_NAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const periodYear=parseInt(leaveSelectedPeriod.split('-')[0]);
+  const yearHolidays=VIC_HOLIDAYS.filter(h=>h.date.startsWith(String(periodYear)));
+  const tiles=yearHolidays.map(h=>{
+    const parts=h.date.split('-');
+    const day=parseInt(parts[2]);
+    const mon=MONTH_NAMES[parseInt(parts[1])-1];
+    const nameParts=h.name.split(' (')[0];
     return `<div class="vic-tile">
       <button class="vic-tile-del" title="Remove" onclick="deleteVicHoliday('${h.date}')">✕</button>
       <div class="vic-tile-day">${day}</div>
@@ -1708,27 +1759,25 @@ function renderVicHolidaysPanel(){
       <div class="vic-tile-name">${nameParts}</div>
     </div>`;
   }).join('');
-  container.innerHTML = `
+  const generateBtn=yearHolidays.length===0
+    ? `<button onclick="autoGenerateVicHolidays(${periodYear})" style="background:rgba(10,132,255,0.15);color:#409cff;border:0.5px solid rgba(10,132,255,0.3);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">Generate ${periodYear} holidays</button>`
+    : `<button onclick="autoGenerateVicHolidays(${periodYear})" style="background:transparent;color:var(--text-3);border:0.5px solid var(--border);border-radius:8px;padding:5px 12px;font-size:11px;cursor:pointer;font-family:inherit">Re-generate</button>`;
+  container.innerHTML=`
     <div class="card">
       <div class="card-header">
         <span class="card-title">VIC Public Holidays</span>
-        <span class="rec-count">${VIC_HOLIDAYS.length} date${VIC_HOLIDAYS.length!==1?'s':''} · Double Pay auto-computes when employees work these days</span>
+        <span class="rec-count">${periodYear} · ${yearHolidays.length} date${yearHolidays.length!==1?'s':''} · Double Pay auto-computes when employees work these days</span>
       </div>
-      <div class="card-body" style="padding:12px 14px 8px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-        <div>
-          <label class="wk-label" style="display:block;margin-bottom:4px">Date</label>
-          <input type="date" class="search-box" id="vicHolidayDateInput" style="width:150px">
-        </div>
-        <div>
-          <label class="wk-label" style="display:block;margin-bottom:4px">Name</label>
-          <input type="text" class="search-box" id="vicHolidayNameInput" placeholder="e.g. AFL Grand Final Friday" style="width:220px">
-        </div>
+      <div class="card-body" style="padding:10px 14px 8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input type="date" class="search-box" id="vicHolidayDateInput" style="width:150px">
+        <input type="text" class="search-box" id="vicHolidayNameInput" placeholder="Holiday name" style="width:200px">
         <button onclick="addVicHoliday()" title="Add holiday" style="width:28px;height:28px;border-radius:50%;background:rgba(10,132,255,0.15);border:1px solid rgba(10,132,255,0.3);color:#409cff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;line-height:1;padding:0;font-family:inherit">+</button>
+        <span style="flex:1"></span>
+        ${generateBtn}
       </div>
-      <div class="vic-tile-grid">${tiles || '<p style="padding:4px 2px;color:var(--text-3);font-size:12px">No holidays recorded yet.</p>'}</div>
+      <div class="vic-tile-grid">${tiles||'<p style="padding:4px 2px;color:var(--text-3);font-size:12px">No holidays for ${periodYear} yet — click Generate to auto-populate.</p>'}</div>
     </div>`;
 }
-
 function renderLeaveBalancesPanel(){
   const container = document.getElementById('leaveBalancesBody');
   if(!container) return;
