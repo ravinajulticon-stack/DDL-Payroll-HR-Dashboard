@@ -2670,6 +2670,50 @@ async function loadPay202Snapshots(){
   else PAY202_SNAPSHOTS = [];
 }
 
+// Write a finalised Employee 202 row into the permanent Employee 500 history.
+async function syncToEmployee500(emp, d, periodStr){
+  var parts = periodStr.split('-').map(Number);
+  var payDate = parts[0] + '-' + String(parts[1]).padStart(2,'0') + '-15';
+  var row = {
+    employee_name: emp.name,
+    pay_date: payDate,
+    period: parts[1],
+    standard_hours: d.regularHours || 0,
+    standard_pay_rate: d.hourlyRate || 0,
+    standard_pay: d.monthlyPayUSD || 0,
+    overtime_hours: d.totalOt || 0,
+    overtime_pay_rate: (d.hourlyRate || 0) * 2,
+    overtime_pay: d.overtimeUSD || 0,
+    holiday_pay: 0,
+    vacation_pay: d.leavePayoutUSD || 0,
+    double_pay: d.doublePay || 0,
+    home_office: d.homeOfficeUSD || 0,
+    others_usd: d.othersUSD || 0,
+    bank_fees: d.bankFees || 0,
+    maxicare_php: d.maxicare || 0,
+    sss_php: d.sssPHP || 0,
+    thirteenth_php: d.thirteenth || 0,
+    loan_php: d.loanPHP || 0,
+    others_php: d.otherPHP || 0,
+    ebury_rate: d.eburyRate || null,
+    total_payout: d.totalPayout || 0,
+    status: 'Paid',
+    note: d.note || null
+  };
+  await sb.from('employee_500').delete().eq('employee_name', emp.name).eq('pay_date', payDate);
+  const { error } = await sb.from('employee_500').insert(row);
+  if(error){ alert('Saved as paid, but could not write to Employee 500: ' + error.message); return; }
+  await loadEmployee500();
+}
+
+// Remove the Employee 500 record when a row is unlocked.
+async function removeFromEmployee500(emp, periodStr){
+  var parts = periodStr.split('-').map(Number);
+  var payDate = parts[0] + '-' + String(parts[1]).padStart(2,'0') + '-15';
+  await sb.from('employee_500').delete().eq('employee_name', emp.name).eq('pay_date', payDate);
+  await loadEmployee500();
+}
+
 async function markAsPaid(empId){
   const emp = EMP201.find(e => e.id === empId); if(!emp) return;
   const days = weekdaysInPeriod(pay202SelectedPeriod);
@@ -2731,7 +2775,7 @@ async function markAsPaid(empId){
   const loanPHP=-((_ld.php||0)+((rate&&_ld.usd)?_ld.usd*rate:0));
   const totalPHP=maxicare+sssPHP+thirteenth+loanPHP+otherPHP;
   const totalPayout=eburyPHP!=null?eburyPHP+totalPHP:null;
-  const snapData={ basicRate,currency,regularHours,unpaidLeaveHours,totalOt,standardHours,blankHours,
+  const snapData={ loanPHP,basicRate,currency,regularHours,unpaidLeaveHours,totalOt,standardHours,blankHours,
     hourlyRate,nativeMonthlyPay,overtimeNative,doublePayNative,doublePay,
     monthlyPayUSD,overtimeUSD,leavePayoutNative,leavePayoutUSD,
     homeOfficeUSD,maxicare,sssPHP,bankFees,othersUSD,thirteenth,otherPHP,note,
@@ -2743,6 +2787,7 @@ async function markAsPaid(empId){
   const existing=PAY202_SNAPSHOTS.find(s=>s.employee_id===empId);
   if(existing){ existing.is_paid=true; existing.data=snapData; }
   else PAY202_SNAPSHOTS.push({employee_id:empId,period_month:pay202SelectedPeriod+'-01',is_paid:true,data:snapData});
+  await syncToEmployee500(emp, snapData, pay202SelectedPeriod);
   renderPay202();
 }
 
@@ -2754,6 +2799,8 @@ async function unmarkAsPaid(empId){
   const existing=PAY202_SNAPSHOTS.find(s=>s.employee_id===empId);
   if(existing) existing.is_paid=false;
   renderPay202();
+  const _emp = EMP201.find(function(x){ return x.id === empId; });
+  if(_emp) await removeFromEmployee500(_emp, pay202SelectedPeriod);
 }
 
 function togglePay202Paid(empId, checked){
