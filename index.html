@@ -976,7 +976,7 @@ function switchView(view, btn){
   } else if(view === 'timesheet'){
     renderTimesheetGrid();
   }
-  if((view === 'leave' || view === 'timesheet' || view === 'pay202') && !leaveEntriesLoaded){
+  if((view === 'leave' || view === 'timesheet' || view === 'pay202' || view === 'detail') && !leaveEntriesLoaded){
     leaveEntriesLoaded = true;
     loadLeaveEntries();
   } else if(view === 'leave'){
@@ -1599,6 +1599,7 @@ async function loadLeaveEntries(){
   renderEmpYearCalPanel();
   renderTimesheetGrid();
   renderPay202();
+  if(document.getElementById('empBody')) render();
 }
 
 document.getElementById('leavePeriodInput').addEventListener('change', (e) => {
