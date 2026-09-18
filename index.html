@@ -2046,7 +2046,7 @@ function renderPay202(){
   if(rangeLabel) rangeLabel.textContent = fmtPeriodLabel(pay202SelectedPeriod + '-01');
 
   const employees = EMP201
-    .filter(e => !pay202StatusFilter || e.status === pay202StatusFilter || exitFallsInPeriod(e, pay202SelectedPeriod))
+    .filter(e => !pay202StatusFilter || e.status === pay202StatusFilter || exitFallsInPeriod(e, pay202SelectedPeriod) || PAY202_SNAPSHOTS.some(s => s.employee_id === e.id && s.is_paid))
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name));
 
