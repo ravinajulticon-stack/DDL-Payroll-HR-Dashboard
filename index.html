@@ -2446,7 +2446,7 @@ function renderLoansPanel(){
       + '<td>' + (l.loan_name || "—") + '</td>'
       + '<td style="text-align:right">' + sym + fmtMoney(l.principal) + '</td>'
       + '<td style="text-align:center">' + l.currency + '</td>'
-      + '<td style="text-align:right">' + sym + fmtMoney(per) + (lastAmt !== per ? '<div style="font-size:10px;color:var(--text-3)">last: ' + sym + fmtMoney(lastAmt) + '</div>' : '') + '</td>'
+      + '<td style="text-align:right">' + sym + fmtMoney(per)  + '</td>'
       + '<td style="text-align:center">' + total + '</td>'
       + '<td style="text-align:center">' + fmtPeriodLabel(l.start_period) + '</td>'
       + '<td>' + status + bar + '</td>'
