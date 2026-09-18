@@ -1647,8 +1647,11 @@ async function setLeaveBalance(employeeId, leaveType){
   if(raw === null) return;
   const val = parseFloat(raw.trim());
   if(isNaN(val) || val < 0){ alert('Please enter a valid, non-negative number of hours.'); return; }
-  const today = new Date();
-  const seedDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  // Seed date = 10th of the month BEFORE the selected period (e.g. Sep 2026 → Aug 10 2026)
+  const [sPY, sPM] = leaveSelectedPeriod.split('-').map(Number);
+  let sSM = sPM - 1, sSY = sPY;
+  if(sSM <= 0){ sSM += 12; sSY -= 1; }
+  const seedDate = `${sSY}-${String(sSM).padStart(2,'0')}-10`;
   const { error } = await sb.from('leave_balances')
     .upsert({ employee_id: employeeId, leave_type: leaveType, seed_balance: val, seed_date: seedDate, updated_at: new Date().toISOString() }, { onConflict: 'employee_id,leave_type' });
   if(error){ alert('Could not save balance: ' + error.message); return; }
