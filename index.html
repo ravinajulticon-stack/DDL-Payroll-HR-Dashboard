@@ -534,8 +534,8 @@ body {
 .pay202-table th, .pay202-table td{ box-sizing:border-box; }
 .pay202-table th:nth-child(1), .pay202-table td:nth-child(1){ width:150px; }
 .lb-tile-grid{ display:flex; flex-wrap:wrap; gap:10px; padding:14px; }
-.vic-tile-grid{ display:flex; flex-wrap:wrap; gap:10px; padding:12px 14px 14px; }
-.vic-tile{ min-width:80px; max-width:110px; flex:1; background:var(--surface-2); border:0.5px solid var(--border-strong); border-top:2px solid var(--blue); border-radius:var(--radius); padding:10px 8px 8px; text-align:center; box-shadow:0 1px 6px rgba(0,0,0,0.3), 0 0 0 0.5px rgba(255,255,255,0.04) inset; position:relative; }
+.vic-tile-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(80px, 1fr)); gap:10px; padding:12px 14px 14px; }
+.vic-tile{ background:var(--surface-2); border:0.5px solid var(--border-strong); border-top:2px solid var(--blue); border-radius:var(--radius); padding:10px 8px 8px; text-align:center; box-shadow:0 1px 6px rgba(0,0,0,0.3), 0 0 0 0.5px rgba(255,255,255,0.04) inset; position:relative; }
 .vic-tile-day{ font-size:22px; font-weight:700; color:var(--text); line-height:1; }
 .vic-tile-mon{ font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; color:var(--blue); margin-top:2px; }
 .vic-tile-name{ font-size:9px; color:var(--text-3); margin-top:5px; line-height:1.3; }
