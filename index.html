@@ -1296,15 +1296,20 @@ const HISTORY_ROW_TEMPLATE = (r) => `
     <tr>
       <td>${fmtDate(r.pay_date)}</td>
       <td style="text-align:center">${r.period ?? ''}</td>
+      <td style="text-align:center">${r.standard_hours ?? ''}</td>
       <td style="text-align:right">${fmtMoneyHistory(r.standard_pay_rate)}</td>
       <td style="text-align:right">${fmtMoneyHistory(r.standard_pay)}</td>
       <td style="text-align:center">${r.overtime_hours || 0}</td>
       <td style="text-align:right">${fmtMoneyHistory(r.overtime_pay)}</td>
+      <td style="text-align:right">${fmtMoneyHistory(r.double_pay)}</td>
+      <td style="text-align:right">${fmtMoneyHistory(r.vacation_pay)}</td>
       <td style="text-align:right">${fmtMoneyHistory(r.home_office)}</td>
       <td style="text-align:right">${fmtMoneyHistory(r.others_usd)}</td>
       <td style="text-align:right">${fmtMoneyHistory(r.bank_fees)}</td>
       <td style="text-align:right">${fmtMoneyHistory(r.maxicare_php)}</td>
       <td style="text-align:right">${fmtMoneyHistory(r.sss_php)}</td>
+      <td style="text-align:right">${fmtMoneyHistory(r.thirteenth_php)}</td>
+      <td style="text-align:right">${fmtMoneyHistory(r.loan_php)}</td>
       <td style="text-align:right">${fmtMoneyHistory(r.others_php)}</td>
       <td style="text-align:right">${fmtMoneyHistory(r.ebury_rate)}</td>
       <td style="text-align:right;font-weight:600;color:var(--blue-light)">${fmtMoneyHistory(r.total_payout)}</td>
@@ -1316,15 +1321,20 @@ const HISTORY_HEADER_ROW = `
               <tr>
                 <th>Pay Date</th>
                 <th>Period</th>
+                <th>Standard Hours</th>
                 <th>Standard Pay Rate</th>
                 <th>Standard Pay</th>
                 <th>OT Hours</th>
                 <th>OT Pay</th>
+                <th>Double Pay</th>
+                <th>Leave Payout</th>
                 <th>Home Office</th>
                 <th>Others (USD)</th>
                 <th>Bank Fees</th>
                 <th>Maxicare (PHP)</th>
                 <th>SSS (PHP)</th>
+                <th>13th (PHP)</th>
+                <th>Loan (PHP)</th>
                 <th>Others (PHP)</th>
                 <th>Ebury Rate</th>
                 <th>Total Payout</th>
