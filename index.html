@@ -3147,7 +3147,8 @@ function pay202MonthlyPayCell(val, regularHours, standardHours){
 
 function pay202NoteCell(employeeId, field){
   const e = pay202EntryFor(employeeId);
-  const val = (e && e.note ? e.note : '').toString().replace(/"/g,'&quot;');
+  const _k = field || 'note';
+  const val = (e && e[_k] ? e[_k] : '').toString().replace(/"/g,'&quot;');
   return `<input type="text" class="pay202-input pay202-note" value="${val}" placeholder="\u2014"
     onchange="savePay202Entry('${employeeId}',(field || 'note'),this.value)"
     onkeydown="if(event.key==='Enter') this.blur()">`;
