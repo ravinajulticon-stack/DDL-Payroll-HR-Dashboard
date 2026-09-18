@@ -578,6 +578,7 @@ body {
 .ps-r{ text-align:right; }
 .ps-php{ background:#fdf0e7; }
 .ps-sub-total td{ font-weight:700; background:#f7f7f7; border-top:1.5px solid #ddd; }
+.ps-note{ display:block; font-size:9.5px; color:#777; font-weight:400; margin-top:2px; }
 .ps-net{ display:flex; justify-content:space-between; align-items:center; background:#f26522; color:#fff; padding:12px 16px; font-size:19px; font-weight:800; border-radius:4px; }
 .ps-foot{ margin-top:14px; font-size:10.5px; text-align:center; color:#555; line-height:1.6; }
 @media print{
@@ -2682,7 +2683,10 @@ function buildPayslip(r){
   var addRows = '';
   addRows += psLine('Maxicare', null, null, null, r.maxicare_php);
   addRows += psLine('SSS', null, null, null, r.sss_php);
-  addRows += psLine('13th Month', null, null, null, r.thirteenth_php);
+  var qEnd = pd[1];
+  var qLabel = MN[((qEnd-3)+12-1)%12] + ' – ' + MN[qEnd-1];
+  var thNote = '13th Month<span class="ps-note">' + qLabel + ' quarter · one quarter of monthly basic, pro-rated by months active</span>';
+  addRows += psLine(thNote, null, null, null, r.thirteenth_php);
   addRows += psLine('Others (PHP)', null, null, null, r.others_php);
   var addTotal = (parseFloat(r.maxicare_php)||0)+(parseFloat(r.sss_php)||0)+(parseFloat(r.thirteenth_php)||0)+(parseFloat(r.others_php)||0);
   var loan = parseFloat(r.loan_php) || 0;
