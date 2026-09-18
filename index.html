@@ -742,6 +742,8 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
 .rec-count{ font-size:11.5px; color:var(--text-3); }
 .seg-ctrl .seg-btn{ min-width:170px; text-align:center; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -2767,6 +2769,7 @@ function renderPayslipPanel(){
     +       '<select class="search-box" id="payslipEmpSelect" style="min-width:190px"><option value="">All employees</option>'
     +       names.map(function(n){ return '<option value="' + n + '"' + (n===payslipEmp?' selected':'') + '>' + n + '</option>'; }).join('') + '</select></div>'
     +     '<button class="io-btn primary" onclick="printPayslips()">Print / Save PDF</button>'
+    +     '<button class="io-btn" id="psBulkBtn" onclick="downloadAllPayslips()" title="Saves one PDF per employee">Download All (separate PDFs)</button>'
     +   '</div>'
     + '</div>'
     + '<div id="payslipSheets">' + (slips || empty) + '</div>';
@@ -2781,6 +2784,36 @@ function renderPayslipPanel(){
 }
 
 function printPayslips(){ window.print(); }
+
+function psFileName(row){
+  var safe = String(row.employee_name).replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'');
+  return 'Payslip_' + row.pay_date + '_' + safe + '.pdf';
+}
+
+async function downloadAllPayslips(){
+  if(typeof html2canvas === 'undefined' || !window.jspdf){ alert('PDF libraries are still loading \u2014 please try again in a moment.'); return; }
+  if(!PAYSLIP_ROWS.length){ alert('No payslips for this period.'); return; }
+  var btn = document.getElementById('psBulkBtn');
+  var prevEmp = payslipEmp;
+  payslipEmp = '';
+  renderPayslipPanel();
+  await new Promise(function(r){ setTimeout(r, 400); });
+  var sheets = Array.prototype.slice.call(document.querySelectorAll('.ps-sheet'));
+  var jsPDF = window.jspdf.jsPDF;
+  for(var i = 0; i < sheets.length; i++){
+    var b2 = document.getElementById('psBulkBtn');
+    if(b2) b2.textContent = 'Saving ' + (i+1) + ' of ' + sheets.length + '\u2026';
+    var canvas = await html2canvas(sheets[i], { scale: 2, backgroundColor: '#ffffff', logging: false });
+    var pdf = new jsPDF('p','mm','a4');
+    var pw = pdf.internal.pageSize.getWidth();
+    var ih = canvas.height * pw / canvas.width;
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pw, ih);
+    pdf.save(psFileName(PAYSLIP_ROWS[i]));
+    await new Promise(function(r){ setTimeout(r, 500); });
+  }
+  payslipEmp = prevEmp;
+  renderPayslipPanel();
+}
 
 function renderLeavePanel(){
   const container = document.getElementById('leaveBody');
