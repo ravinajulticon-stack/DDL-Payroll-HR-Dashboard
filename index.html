@@ -1847,6 +1847,13 @@ function _deptAbbr(dept){
 }
 function _typeAbbr(t){ return {'Annual Leave':'AL','Personal Leave':'PL','Unpaid Leave':'UL','Compassionate Leave':'CL','Holiday Leave':'HL','Maternity Leave':'ML','Parental Leave':'PaL'}[t]||(t.slice(0,2).toUpperCase()); }
 function _typeClass(t){ if(t==='Annual Leave')return 'al'; if(t==='Personal Leave')return 'pl'; if(t==='Unpaid Leave')return 'ul'; return 'other'; }
+function leaveEntryClick(id){
+  const rec = LEAVE_ENTRIES.find(l=>l.id===id);
+  if(!rec) return;
+  const emp = EMP201.find(e=>e.id===rec.employee_id);
+  const msg = (emp?emp.name:'Unknown employee')+'\n'+rec.leave_type+'\n'+rec.leave_date+' \u00b7 '+rec.hours+' hrs'+(rec.note?('\nNote: '+rec.note):'')+'\n\nRemove this leave entry?';
+  if(confirm(msg)) deleteLeaveEntry(id);
+}
 function renderLeaveCalendar(entries, periodStr){
   const [py,pm]=periodStr.split('-').map(Number);
   let sm=pm-1,sy=py; if(sm<=0){sm+=12;sy-=1;}
@@ -1874,7 +1881,7 @@ function renderLeaveCalendar(entries, periodStr){
         const dept=_deptAbbr(emp?.department||'');
         const abbr=_typeAbbr(e.leave_type);
         const tc=_typeClass(e.leave_type);
-        return `<div class="lv-entry ${tc}" title="${emp?.name||''} · ${e.leave_type} · ${e.hours} hrs">${name} (${dept}-${abbr})</div>`;
+        return `<div class="lv-entry ${tc}" style="cursor:pointer" title="${emp?.name||''} · ${e.leave_type} · ${e.hours} hrs \u00b7 click to view/remove" onclick="leaveEntryClick('${e.id}')">${name} (${dept}-${abbr})</div>`;
       }).join('');
       rows+=`<td class="${cls}"><div class="lv-cal-day">${d}</div>${ents}</td>`;
       if(dow===6&&d<dim) rows+='</tr><tr>';
