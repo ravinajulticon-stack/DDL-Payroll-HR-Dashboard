@@ -546,6 +546,14 @@ body {
 .vic-tile-name{ font-size:9px; color:var(--text-3); margin-top:5px; line-height:1.3; }
 .vic-tile-del{ position:absolute; top:4px; right:4px; background:none; border:none; color:var(--text-3); cursor:pointer; font-size:10px; padding:1px 3px; border-radius:3px; }
 .vic-tile-del:hover{ background:var(--surface-3); color:var(--text); }
+.vic-tile.is-today{ border-top-color:var(--green); box-shadow:0 0 0 1px rgba(48,209,88,0.5), 0 0 18px rgba(48,209,88,0.45); }
+.vic-tile.is-today .vic-tile-day{ color:var(--green); }
+.vic-tile.is-today .vic-tile-mon{ color:var(--green); }
+.vic-tile-today-tag{ font-size:8px; font-weight:700; letter-spacing:0.6px; text-transform:uppercase; color:var(--green); margin-top:3px; }
+.vic-tile.is-today{ border-top-color:var(--green); box-shadow:0 0 0 1px rgba(48,209,88,0.5), 0 0 18px rgba(48,209,88,0.45); }
+.vic-tile.is-today .vic-tile-day{ color:var(--green); }
+.vic-tile.is-today .vic-tile-mon{ color:var(--green); }
+.vic-tile-today-tag{ font-size:8px; font-weight:700; letter-spacing:0.6px; text-transform:uppercase; color:var(--green); margin-top:3px; }
 .lb-tile{ min-width:0; background:var(--surface-2); border:1px solid var(--border-strong); border-top:3px solid var(--blue); border-radius:var(--radius); padding:12px 10px 10px; text-align:center; }
 .lb-tile-name{ font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-2); margin-bottom:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .lb-tile-val{ font-size:21px; font-weight:700; color:var(--text); line-height:1.1; }
@@ -1924,6 +1932,8 @@ function renderVicHolidaysPanel(){
   const container=document.getElementById('vicHolidaysBody');
   if(!container)return;
   const MONTH_NAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const _now=new Date();
+  const todayStr=_now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0')+'-'+String(_now.getDate()).padStart(2,'0');
   const periodYear=parseInt(leaveSelectedPeriod.split('-')[0]);
   const yearHolidays=VIC_HOLIDAYS.filter(h=>h.date.startsWith(String(periodYear)));
   const tiles=yearHolidays.map(h=>{
@@ -1931,11 +1941,12 @@ function renderVicHolidaysPanel(){
     const day=parseInt(parts[2]);
     const mon=MONTH_NAMES[parseInt(parts[1])-1];
     const nameParts=h.name.split(' (')[0];
-    return `<div class="vic-tile">
+    const isToday = h.date === todayStr;
+    return `<div class="vic-tile${isToday ? ' is-today' : ''}">
       <button class="vic-tile-del" title="Remove" onclick="deleteVicHoliday('${h.date}')">✕</button>
       <div class="vic-tile-day">${day}</div>
       <div class="vic-tile-mon">${mon}</div>
-      <div class="vic-tile-name">${nameParts}</div>
+      <div class="vic-tile-name">${nameParts}</div>${isToday ? '<div class="vic-tile-today-tag">Today</div>' : ''}
     </div>`;
   }).join('');
   const generateBtn=yearHolidays.length===0
