@@ -1405,8 +1405,19 @@ function renderTimesheetGrid(){
   const rangeLabel = document.getElementById('tsGridRangeLabel');
   if(rangeLabel) rangeLabel.textContent = days.length ? `${fmtPeriodLabel(tsSelectedPeriod + '-01')} \u00b7 ${days.length} weekdays` : '';
 
+  // Period start = 11th of the month before tsSelectedPeriod (e.g. Sep 2026 → Aug 11 2026)
+  const [tsPY, tsPM] = tsSelectedPeriod.split('-').map(Number);
+  let pStartM = tsPM - 1, pStartY = tsPY;
+  if(pStartM <= 0){ pStartM += 12; pStartY -= 1; }
+  const periodStart = `${pStartY}-${String(pStartM).padStart(2,'0')}-11`;
+
   const employees = EMP201
-    .filter(e => !tsStatusFilter || e.status === tsStatusFilter)
+    .filter(e => {
+      if(tsStatusFilter && e.status !== tsStatusFilter) return false;
+      // Hide if employee exited before this period started
+      if(e.exit_date && e.exit_date < periodStart) return false;
+      return true;
+    })
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name));
 
