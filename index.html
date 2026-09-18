@@ -2703,7 +2703,7 @@ async function syncToEmployee500(emp, d, periodStr){
   await sb.from('employee_500').delete().eq('employee_name', emp.name).eq('pay_date', payDate);
   const { error } = await sb.from('employee_500').insert(row);
   if(error){ alert('Saved as paid, but could not write to Employee 500: ' + error.message); return; }
-  await loadEmployee500();
+  await loadHistory();
 }
 
 // Remove the Employee 500 record when a row is unlocked.
@@ -2711,7 +2711,7 @@ async function removeFromEmployee500(emp, periodStr){
   var parts = periodStr.split('-').map(Number);
   var payDate = parts[0] + '-' + String(parts[1]).padStart(2,'0') + '-15';
   await sb.from('employee_500').delete().eq('employee_name', emp.name).eq('pay_date', payDate);
-  await loadEmployee500();
+  await loadHistory();
 }
 
 async function markAsPaid(empId){
