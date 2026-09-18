@@ -1149,7 +1149,7 @@ function fmtMoney(n){
   if(n === '' || n === null || n === undefined) return '';
   const num = typeof n === 'number' ? n : parseFloat(n);
   if(isNaN(num)) return '';
-  return num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // Employee 500 only: whole numbers stay whole, but any number with a fraction always
