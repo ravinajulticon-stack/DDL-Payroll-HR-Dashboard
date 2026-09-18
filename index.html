@@ -2724,7 +2724,7 @@ async function markAsPaid(empId){
   const snapData={ basicRate,currency,regularHours,unpaidLeaveHours,totalOt,standardHours,blankHours,
     hourlyRate,nativeMonthlyPay,overtimeNative,doublePayNative,doublePay,
     monthlyPayUSD,overtimeUSD,leavePayoutNative,leavePayoutUSD,
-    homeOfficeUSD,maxicare,sssPHR,bankFees,othersUSD,thirteenth,otherPHP,note,
+    homeOfficeUSD,maxicare,sssPHP,bankFees,othersUSD,thirteenth,otherPHP,note,
     totalUSD,eburyPHP,eburyRate:rate,totalPHP,totalPayout,pSS,pES };
   const { error } = await sb.from('pay202_snapshots').upsert(
     { employee_id:empId, period_month:pay202SelectedPeriod+'-01', is_paid:true, paid_at:new Date().toISOString(), data:snapData },
