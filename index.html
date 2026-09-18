@@ -712,6 +712,7 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
     <button class="seg-btn" onclick="switchView('timesheet',this)">Timesheet</button>
     <button class="seg-btn" onclick="switchView('pay202',this)">Employee 202</button>
     <button class="seg-btn" onclick="switchView('leave',this)">Employee 203</button>
+        <button class="seg-btn" onclick="switchView('loans',this)">Employee 204</button>
     <button class="seg-btn" onclick="switchView('history',this)">Employee 500</button>
   </div>
   <div class="toolbar-sep"></div>
@@ -868,6 +869,11 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
     <div id="empYearCalBody"></div>
   </div>
 
+  <!-- EMPLOYEE 204 (SALARY LOAN SCHEDULE) -->
+  <div id="loansView" style="display:none">
+    <div id="loansBody"></div>
+  </div>
+
   <!-- TIMESHEET (BULK DAILY HOURS ENTRY: EMPLOYEES x WEEKDAYS FOR A PAY PERIOD) -->
   <div id="timesheetView" style="display:none">
     <div class="card" style="margin-bottom:16px">
@@ -957,6 +963,7 @@ function switchView(view, btn){
   document.getElementById('detailView').style.display = view === 'detail' ? 'block' : 'none';
   document.getElementById('historyView').style.display = view === 'history' ? 'block' : 'none';
   document.getElementById('leaveView').style.display = view === 'leave' ? 'block' : 'none';
+  document.getElementById('loansView').style.display = view === 'loans' ? 'block' : 'none';
   document.getElementById('timesheetView').style.display = view === 'timesheet' ? 'block' : 'none';
   document.getElementById('pay202View').style.display = view === 'pay202' ? 'block' : 'none';
   document.getElementById('searchBox').style.display = view === 'detail' ? 'inline-block' : 'none';
@@ -984,6 +991,12 @@ function switchView(view, btn){
     renderVicHolidaysPanel();
     renderLeavePanel();
     renderEmpYearCalPanel();
+  }
+  if((view === 'loans' || view === 'pay202') && !salaryLoansLoaded){
+    salaryLoansLoaded = true;
+    loadSalaryLoans();
+  } else if(view === 'loans'){
+    renderLoansPanel();
   }
   if((view === 'leave' || view === 'pay202') && !vicHolidaysLoaded){
     vicHolidaysLoaded = true;
@@ -2328,6 +2341,146 @@ function syncMonthPickerLabels(){
   });
 }
 
+
+/* EMPLOYEE 204 (SALARY LOAN SCHEDULE) */
+let SALARY_LOANS = [];
+let salaryLoansLoaded = false;
+
+async function loadSalaryLoans(){
+  const { data, error } = await sb.from('salary_loans').select('*');
+  if(error){ alert('Could not load salary loans: ' + error.message); return; }
+  SALARY_LOANS = data || [];
+  renderLoansPanel();
+  renderPay202();
+}
+
+function loanInstallmentIndex(loan, periodStr){
+  var sp = loan.start_period.slice(0,7).split('-').map(Number);
+  var pp = periodStr.split('-').map(Number);
+  return (pp[0]-sp[0])*12 + (pp[1]-sp[1]) + 1;
+}
+
+function loanPerInstallment(loan){
+  var n = parseInt(loan.installments) || 0;
+  if(n <= 0) return 0;
+  return (parseFloat(loan.principal) || 0) / n;
+}
+
+function loanDeductionFor(employeeId, periodStr){
+  var usd = 0, php = 0;
+  SALARY_LOANS.filter(function(l){ return l.employee_id === employeeId; }).forEach(function(l){
+    var idx = loanInstallmentIndex(l, periodStr);
+    if(idx < 1 || idx > (parseInt(l.installments)||0)) return;
+    var amt = loanPerInstallment(l);
+    if(l.currency === 'USD') usd += amt; else php += amt;
+  });
+  return { usd: Math.round(usd*100)/100, php: Math.round(php*100)/100 };
+}
+
+async function addSalaryLoan(){
+  var empId = document.getElementById('loanEmployeeSelect').value;
+  var name  = document.getElementById('loanNameInput').value.trim();
+  var principal = parseFloat(document.getElementById('loanPrincipalInput').value);
+  var cur = document.getElementById('loanCurrencySelect').value;
+  var inst = parseInt(document.getElementById('loanInstallmentsInput').value);
+  var startP = document.getElementById('loanStartPeriodInput').value;
+  if(!empId){ alert('Please choose an employee.'); return; }
+  if(isNaN(principal) || principal <= 0){ alert('Please enter a valid loan amount.'); return; }
+  if(isNaN(inst) || inst < 1){ alert('Please enter a valid number of installments.'); return; }
+  if(!startP){ alert('Please choose a start pay period.'); return; }
+  const { error } = await sb.from('salary_loans').insert({
+    employee_id: empId, loan_name: name || 'Salary Loan',
+    principal: principal, currency: cur, installments: inst,
+    start_period: startP + '-01'
+  });
+  if(error){ alert('Could not add loan: ' + error.message); return; }
+  document.getElementById('loanNameInput').value = '';
+  document.getElementById('loanPrincipalInput').value = '';
+  document.getElementById('loanInstallmentsInput').value = '';
+  await loadSalaryLoans();
+}
+
+async function deleteSalaryLoan(id){
+  if(!confirm('Remove this loan and its remaining deductions?')) return;
+  const { error } = await sb.from('salary_loans').delete().eq('id', id);
+  if(error){ alert('Could not remove loan: ' + error.message); return; }
+  await loadSalaryLoans();
+}
+
+function renderLoansPanel(){
+  var container = document.getElementById('loansBody');
+  if(!container) return;
+  var employees = EMP201.slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
+  var nowPeriod = pay202SelectedPeriod;
+  var rows = SALARY_LOANS.slice().sort(function(a,b){
+    var ea = (EMP201.find(function(e){return e.id===a.employee_id;})||{}).name || '';
+    var eb = (EMP201.find(function(e){return e.id===b.employee_id;})||{}).name || '';
+    return ea.localeCompare(eb) || a.start_period.localeCompare(b.start_period);
+  }).map(function(l){
+    var emp = EMP201.find(function(e){return e.id===l.employee_id;});
+    var per = loanPerInstallment(l);
+    var total = parseInt(l.installments)||0;
+    var idx = loanInstallmentIndex(l, nowPeriod);
+    var paid = Math.max(0, Math.min(total, idx-1));
+    var remaining = Math.max(0, total - paid);
+    var sym = l.currency === 'USD' ? '$' : "₱";
+    var status = idx < 1 ? '<span style="color:var(--text-3)">Not started</span>'
+      : (idx > total ? '<span style="color:var(--green)">Fully paid</span>'
+      : '<span style="color:var(--blue)">Installment ' + idx + ' of ' + total + '</span>');
+    var pct = total ? Math.round(paid/total*100) : 0;
+    var bar = '<div style="height:4px;background:var(--surface-3);border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:var(--blue)"></div></div>';
+    return '<tr>'
+      + '<td>' + (emp ? emp.name : 'Unknown') + '</td>'
+      + '<td>' + (l.loan_name || "—") + '</td>'
+      + '<td style="text-align:right">' + sym + fmtMoney(l.principal) + '</td>'
+      + '<td style="text-align:center">' + l.currency + '</td>'
+      + '<td style="text-align:right">' + sym + fmtMoney(per) + '</td>'
+      + '<td style="text-align:center">' + total + '</td>'
+      + '<td style="text-align:center">' + fmtPeriodLabel(l.start_period) + '</td>'
+      + '<td>' + status + bar + '</td>'
+      + '<td style="text-align:right">' + sym + fmtMoney(per*remaining) + '</td>'
+      + '<td><button class="del-btn" title="Remove" onclick="deleteSalaryLoan(' + JSON.stringify(l.id) + ')">✕</button></td>'
+      + '</tr>';
+  }).join('');
+
+  var opts = employees.map(function(e){ return '<option value="' + e.id + '">' + e.name + '</option>'; }).join('');
+  var empty = '<tr><td colspan="10" style="text-align:center;color:var(--text-3);padding:16px">No loans recorded yet.</td></tr>';
+
+  container.innerHTML = ''
+    + '<div class="card" style="margin-bottom:16px">'
+    +   '<div class="card-header"><span class="card-title">Add Salary Loan</span>'
+    +   '<span class="rec-count">Deduction per period = loan amount ÷ installments</span></div>'
+    +   '<div class="card-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
+    +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Employee</label>'
+    +       '<select class="search-box" id="loanEmployeeSelect" style="min-width:170px"><option value="">Choose employee</option>' + opts + '</select></div>'
+    +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Loan name</label>'
+    +       '<input type="text" class="search-box" id="loanNameInput" placeholder="e.g. Laptop Loan" style="width:170px"></div>'
+    +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Amount</label>'
+    +       '<input type="number" step="0.01" class="search-box" id="loanPrincipalInput" placeholder="0.00" style="width:110px"></div>'
+    +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Currency</label>'
+    +       '<select class="search-box" id="loanCurrencySelect" style="width:80px"><option value="PHP">PHP</option><option value="USD">USD</option></select></div>'
+    +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Installments</label>'
+    +       '<input type="number" min="1" class="search-box" id="loanInstallmentsInput" placeholder="e.g. 6" style="width:100px"></div>'
+    +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Start pay period</label>'
+    +       '<input type="month" class="search-box" id="loanStartPeriodInput" min="' + MIN_OPEN_PERIOD + '" value="' + pay202SelectedPeriod + '" style="width:150px"></div>'
+    +     '<button class="btn-add" onclick="addSalaryLoan()">+ Add Loan</button>'
+    +   '</div>'
+    + '</div>'
+    + '<div class="card">'
+    +   '<div class="card-header"><span class="card-title">Salary Loan Schedule</span>'
+    +   '<span class="rec-count">' + SALARY_LOANS.length + ' loan' + (SALARY_LOANS.length!==1?'s':'') + ' — progress as of ' + fmtPeriodLabel(nowPeriod + '-01') + '</span></div>'
+    +   '<div class="card-body" style="padding:0"><div class="tbl-scroll" style="max-height:calc(100vh - 340px)">'
+    +     '<table class="rec-table"><thead><tr>'
+    +       '<th>Employee</th><th>Loan</th><th style="text-align:right">Amount</th>'
+    +       '<th style="text-align:center">Cur</th><th style="text-align:right">Per Period</th>'
+    +       '<th style="text-align:center">Terms</th><th style="text-align:center">Starts</th>'
+    +       '<th>Progress</th><th style="text-align:right">Outstanding</th><th style="width:40px"></th>'
+    +     '</tr></thead><tbody>' + (rows || empty) + '</tbody></table>'
+    +   '</div></div>'
+    + '</div>';
+
+  if(typeof attachDatePicker === 'function' && typeof attachMonthPicker === 'function') attachMonthPicker('loanStartPeriodInput');
+}
 function renderLeavePanel(){
   const container = document.getElementById('leaveBody');
   if(!container) return;
@@ -2411,7 +2564,7 @@ function renderLeavePanel(){
 ══════════════════════════════════════ */
 const PAY202_COLUMNS = [
   'Monthly Pay', 'Home Office', 'Double Pay', 'Others (USD)', 'Overtime', 'Leave Payout', 'Bank Fees',
-  'Total USD', 'Ebury USD/PHP', 'Maxicare', 'SSS', '13th', 'Other (PHP)', 'Note',
+  'Total USD', 'Ebury USD/PHP', 'Maxicare', 'SSS', '13th', 'Loan', 'Other (PHP)', 'Note',
   'Total PHP', 'Total Payout', 'Paid'
 ];
 // Fixed, non-editable: every employee incurs a flat $5 USD bank fee every period.
@@ -2502,7 +2655,9 @@ async function markAsPaid(empId){
   const totalUSD=(monthlyPayUSD!=null&&overtimeUSD!=null&&(leavePayoutNative===0||leavePayoutUSD!=null))
     ?(monthlyPayUSD+homeOfficeUSD+doublePay+othersUSD+overtimeUSD+(leavePayoutUSD||0)+bankFees):null;
   const eburyPHP=(totalUSD!=null&&rate)?totalUSD*rate:null;
-  const totalPHP=maxicare+sssPHP+thirteenth+otherPHP;
+  const _ld=(typeof loanDeductionFor==='function')?loanDeductionFor(emp.id,pay202SelectedPeriod):{usd:0,php:0};
+  const loanPHP=-((_ld.php||0)+((rate&&_ld.usd)?_ld.usd*rate:0));
+  const totalPHP=maxicare+sssPHP+thirteenth+loanPHP+otherPHP;
   const totalPayout=eburyPHP!=null?eburyPHP+totalPHP:null;
   const snapData={ basicRate,currency,regularHours,unpaidLeaveHours,totalOt,standardHours,blankHours,
     hourlyRate,nativeMonthlyPay,overtimeNative,doublePayNative,doublePay,
@@ -2809,7 +2964,9 @@ function renderPay202(){
       ? (monthlyPayUSD + homeOfficeUSD + doublePay + othersUSD + overtimeUSD + (leavePayoutUSD || 0) + bankFees)
       : null;
     const eburyPHP = (totalUSD != null && rate) ? totalUSD * rate : null;
-    const totalPHP = maxicare + sssPHP + thirteenth + otherPHP;
+    const _ld2=(typeof loanDeductionFor==='function')?loanDeductionFor(emp.id,pay202SelectedPeriod):{usd:0,php:0};
+    const loanPHP = -((_ld2.php||0)+((rate&&_ld2.usd)?_ld2.usd*rate:0));
+    const totalPHP = maxicare + sssPHP + thirteenth + loanPHP + otherPHP;
     const totalPayout = (eburyPHP != null) ? eburyPHP + totalPHP : null;
 
     const cells = [
@@ -2825,6 +2982,7 @@ function renderPay202(){
       maxicare ? fmtMoney(maxicare) : '\u2014',         // Maxicare
       sssPHP ? fmtMoney(sssPHP) : '\u2014',             // SSS
       thirteenth ? fmtMoney(thirteenth) : '—',            // 13th (auto)
+      (function(){ var _l=(typeof loanDeductionFor==='function')?loanDeductionFor(emp.id,pay202SelectedPeriod):{usd:0,php:0}; var _v=-((_l.php||0)+((rate&&_l.usd)?_l.usd*rate:0)); return _v ? '<span title="Salary loan installment" style="color:var(--amber)">' + fmtMoney(_v) + '</span>' : "—"; })(),   // Loan
       pay202MoneyCell(emp.id, 'other_php'),             // Other (PHP)
       pay202NoteCell(emp.id),                           // Note
       totalPHP ? fmtMoney(totalPHP) : '\u2014',         // Total PHP
