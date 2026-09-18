@@ -971,6 +971,7 @@ function switchView(view, btn){
   } else if(view === 'pay202'){
     renderPay202();
   }
+  syncMonthPickerLabels();
 }
 
 function renderKpis(){
@@ -2100,6 +2101,7 @@ function attachMonthPicker(inputId){
   field.type = 'button';
   field.className = 'mp-field';
   field.textContent = mpLabel(input.value);
+  input.__mpField = field;
   wrap.appendChild(field);
 
   const panel = document.createElement('div');
@@ -2166,6 +2168,13 @@ function attachMonthPicker(inputId){
 
 function initMonthPickers(){
   ['tsGridPeriodInput','pay202PeriodInput','leavePeriodInput'].forEach(attachMonthPicker);
+}
+
+function syncMonthPickerLabels(){
+  ['tsGridPeriodInput','pay202PeriodInput','leavePeriodInput'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el && el.__mpField) el.__mpField.textContent = mpLabel(el.value);
+  });
 }
 
 function renderLeavePanel(){
@@ -2757,6 +2766,7 @@ function render(){
 
 
 initMonthPickers();
+setTimeout(syncMonthPickerLabels, 800);
 
 </script>
 </body>
