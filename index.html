@@ -533,6 +533,15 @@ body {
 .pay202-table th:nth-child(1), .pay202-table td:nth-child(1){ width:150px; }
 .pay202-table th:nth-child(2), .pay202-table td:nth-child(2){ width:100px; }
 .pay202-table th:nth-child(3), .pay202-table td:nth-child(3){ width:100px; }
+.pay202-toggle{ position:relative; display:inline-block; width:34px; height:18px; vertical-align:middle; }
+.pay202-toggle input{ opacity:0; width:0; height:0; position:absolute; }
+.pay202-toggle-slider{ position:absolute; cursor:pointer; inset:0; background:var(--surface-3); border-radius:18px; transition:.2s; }
+.pay202-toggle-slider:before{ content:""; position:absolute; width:12px; height:12px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s; }
+input:checked+.pay202-toggle-slider{ background:var(--green); }
+input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
+.pay202-paid-badge{ font-size:9px; font-weight:700; color:var(--green); margin-left:4px; vertical-align:middle; }
+.pay202-paid-row td{ opacity:0.7; }
+.pay202-paid-row td:last-child{ opacity:1; }
 .pay202-table th:nth-child(4), .pay202-table td:nth-child(4){ width:100px; }
 .pay202-table th:nth-child(5), .pay202-table td:nth-child(5){ width:100px; }
 .pay202-table th:nth-child(6), .pay202-table td:nth-child(6){ width:90px; }
@@ -1801,12 +1810,13 @@ function renderLeavePanel(){
 const PAY202_COLUMNS = [
   'Monthly Pay', 'Home Office', 'Double Pay', 'Others (USD)', 'Overtime', 'Leave Payout', 'Bank Fees',
   'Total USD', 'Ebury USD/PHP', 'Note', 'Maxicare', 'SSS', '13th', 'Other (PHP)',
-  'Total PHP', 'Total Payout'
+  'Total PHP', 'Total Payout', 'Paid'
 ];
 // Fixed, non-editable: every employee incurs a flat $5 USD bank fee every period.
 const BANK_FEE_USD = 5;
 let pay202EburyRate = null; // this period's PHP-per-USD rate; null until entered
 let PAY202_ENTRIES = [];    // manual per-employee figures for the selected period
+let PAY202_SNAPSHOTS = [];  // paid/locked snapshots per employee per period
 
 document.getElementById('pay202PeriodInput').addEventListener('change', (e) => {
   if(!e.target.value) return;
@@ -1824,12 +1834,98 @@ document.getElementById('pay202EburyRateInput').addEventListener('change', (e) =
   savePay202EburyRate(e.target.value);
 });
 
+async function loadPay202Snapshots(){
+  const { data, error } = await sb.from('pay202_snapshots')
+    .select('employee_id,is_paid,data')
+    .eq('period_month', pay202SelectedPeriod + '-01')
+    .eq('is_paid', true);
+  if(!error && data) PAY202_SNAPSHOTS = data;
+  else PAY202_SNAPSHOTS = [];
+}
+
+async function markAsPaid(empId){
+  const emp = EMP201.find(e => e.id === empId); if(!emp) return;
+  const days = weekdaysInPeriod(pay202SelectedPeriod);
+  const rate = pay202EburyRate;
+  const basicRate = parseFloat(emp.basic_pay_rate)||0;
+  const currency = emp.currency||'PHP';
+  let totalOt=0,regularHours=0,unpaidLeaveHours=0;
+  days.forEach(d=>{
+    const entry=TIMESHEET_ENTRIES.find(t=>t.employee_id===emp.id&&t.work_date===d.date);
+    const workedHrs=entry?(parseFloat(entry.hours_worked)||0):0;
+    if(workedHrs>8) totalOt+=(workedHrs-8);
+    const leave=leaveOn(emp.id,d.date); const info=leave?leaveTypeInfo(leave.leave_type):null;
+    const paidHrs=(info&&info.paid)?(parseFloat(leave.hours)||0):0;
+    const unpaidHrs=(info&&!info.paid)?(parseFloat(leave.hours)||0):0;
+    regularHours+=Math.min(workedHrs+paidHrs,8); unpaidLeaveHours+=unpaidHrs;
+  });
+  const standardHours=days.length*8;
+  const hourlyRate=basicRate*12/52/40;
+  const blankHours=Math.max(0,standardHours-regularHours-unpaidLeaveHours);
+  const nativeMonthlyPay=blankHours===0?Math.max(0,basicRate-(unpaidLeaveHours*hourlyRate)):Math.min(hourlyRate*regularHours,basicRate);
+  const overtimeNative=hourlyRate*OT_MULTIPLIER*totalOt;
+  const { start:pStart, end:pEnd }=periodBounds(pay202SelectedPeriod);
+  const pSS=pStart.toISOString().slice(0,10), pES=pEnd.toISOString().slice(0,10);
+  let doublePayNative=0;
+  VIC_HOLIDAYS.filter(h=>h.date>=pSS&&h.date<=pES).forEach(h=>{
+    const ts=TIMESHEET_ENTRIES.find(t=>t.employee_id===emp.id&&t.work_date===h.date);
+    if(ts) doublePayNative+=hourlyRate*(parseFloat(ts.hours_worked)||0);
+  });
+  const doublePay=currency==='USD'?doublePayNative:(rate?doublePayNative/rate:0);
+  const monthlyPayUSD=currency==='USD'?nativeMonthlyPay:(rate?nativeMonthlyPay/rate:null);
+  const overtimeUSD=currency==='USD'?overtimeNative:(rate?overtimeNative/rate:null);
+  let leavePayoutNative=0;
+  if(exitFallsInPeriod(emp,pay202SelectedPeriod)){ leavePayoutNative=annualLeavePayoutNative(emp)||0; }
+  const leavePayoutUSD=currency==='USD'?leavePayoutNative:(rate?leavePayoutNative/rate:null);
+  const homeOfficeUSD=emp.home_office?(parseFloat(emp.home_office_amount)||0):0;
+  const maxicare=parseFloat(emp.insurance_amount)||0;
+  const sssPHP=emp.sss_enrolled?(parseFloat(emp.sss_amount)||0):0;
+  const othersUSD=pay202Val(emp.id,'others_usd')||0;
+  const thirteenth=pay202Val(emp.id,'thirteenth')||0;
+  const otherPHP=pay202Val(emp.id,'other_php')||0;
+  const bankFees=BANK_FEE_USD;
+  const note=(pay202EntryFor(emp.id)&&pay202EntryFor(emp.id).note)||'';
+  const totalUSD=(monthlyPayUSD!=null&&overtimeUSD!=null&&(leavePayoutNative===0||leavePayoutUSD!=null))
+    ?(monthlyPayUSD+homeOfficeUSD+doublePay+othersUSD+overtimeUSD+(leavePayoutUSD||0)+bankFees):null;
+  const eburyPHP=(totalUSD!=null&&rate)?totalUSD*rate:null;
+  const totalPHP=maxicare+sssPHP+thirteenth+otherPHP;
+  const totalPayout=eburyPHP!=null?eburyPHP+totalPHP:null;
+  const snapData={ basicRate,currency,regularHours,unpaidLeaveHours,totalOt,standardHours,blankHours,
+    hourlyRate,nativeMonthlyPay,overtimeNative,doublePayNative,doublePay,
+    monthlyPayUSD,overtimeUSD,leavePayoutNative,leavePayoutUSD,
+    homeOfficeUSD,maxicare,sssPHR,bankFees,othersUSD,thirteenth,otherPHP,note,
+    totalUSD,eburyPHP,eburyRate:rate,totalPHP,totalPayout,pSS,pES };
+  const { error } = await sb.from('pay202_snapshots').upsert(
+    { employee_id:empId, period_month:pay202SelectedPeriod+'-01', is_paid:true, paid_at:new Date().toISOString(), data:snapData },
+    { onConflict:'employee_id,period_month' });
+  if(error){ alert('Could not save: '+error.message); return; }
+  const existing=PAY202_SNAPSHOTS.find(s=>s.employee_id===empId);
+  if(existing){ existing.is_paid=true; existing.data=snapData; }
+  else PAY202_SNAPSHOTS.push({employee_id:empId,period_month:pay202SelectedPeriod+'-01',is_paid:true,data:snapData});
+  renderPay202();
+}
+
+async function unmarkAsPaid(empId){
+  if(!confirm('Unlock this row? It will revert to live computation.')) return;
+  const { error } = await sb.from('pay202_snapshots').update({is_paid:false})
+    .eq('employee_id',empId).eq('period_month',pay202SelectedPeriod+'-01');
+  if(error){ alert('Could not unlock: '+error.message); return; }
+  const existing=PAY202_SNAPSHOTS.find(s=>s.employee_id===empId);
+  if(existing) existing.is_paid=false;
+  renderPay202();
+}
+
+function togglePay202Paid(empId, checked){
+  if(checked) markAsPaid(empId); else unmarkAsPaid(empId);
+}
+
 async function loadPay202EburyRate(){
   const periodMonth = pay202SelectedPeriod + '-01';
   const { data, error } = await sb.from('pay202_period_rates').select('*').eq('period_month', periodMonth).maybeSingle();
   if(error){ alert('Could not load Ebury rate: ' + error.message); }
   pay202EburyRate = (data && data.ebury_rate != null) ? parseFloat(data.ebury_rate) : null;
   await loadPay202Entries();
+  await loadPay202Snapshots();
 }
 
 // Per-employee, per-period manual figures (Double Pay, Others, Bank Fees, 13th, Other PHP, Note).
@@ -1955,8 +2051,39 @@ function renderPay202(){
 
   const headerCells = PAY202_COLUMNS.map(c => `<th>${c}</th>`).join('');
   const bodyRows = employees.map(emp => {
+    const snap = PAY202_SNAPSHOTS.find(s => s.employee_id === emp.id);
+    const isPaid = !!(snap && snap.is_paid);
+    if(isPaid){
+      const d = snap.data;
+      const toggleCell = '<td style="text-align:center;white-space:nowrap"><label class="pay202-toggle" title="Paid \u2014 click to unlock"><input type="checkbox" checked onchange="togglePay202Paid(\'' + emp.id + '\',this.checked)"><span class="pay202-toggle-slider"></span></label><span class="pay202-paid-badge">\u2713 Paid</span></td>';
+      const cv = v => (v!=null?fmtMoney(v):'\u2014');
+      const cells = [
+        pay202MonthlyPayCell(d.monthlyPayUSD, d.regularHours, d.standardHours),
+        d.homeOfficeUSD ? fmtMoney(d.homeOfficeUSD) : '\u2014',
+        d.doublePayNative>0 ? fmtMoney(d.doublePay) : '\u2014',
+        d.othersUSD ? fmtMoney(d.othersUSD) : '\u2014',
+        d.overtimeUSD ? fmtMoney(d.overtimeUSD) : '\u2014',
+        d.leavePayoutUSD ? fmtMoney(d.leavePayoutUSD) : '\u2014',
+        fmtMoney(d.bankFees),
+        cv(d.totalUSD), cv(d.eburyPHP),
+        d.note||'',
+        d.maxicare ? fmtMoney(d.maxicare) : '\u2014',
+        d.sssPHP ? fmtMoney(d.sssPHP) : '\u2014',
+        d.thirteenth ? fmtMoney(d.thirteenth) : '\u2014',
+        d.otherPHP ? fmtMoney(d.otherPHP) : '\u2014',
+        d.totalPHP ? fmtMoney(d.totalPHP) : '\u2014',
+        cv(d.totalPayout)
+      ];
+      runTotals.totalUSD    += d.totalUSD    || 0;
+      runTotals.eburyPHP    += d.eburyPHP    || 0;
+      runTotals.totalPHP    += d.totalPHP    || 0;
+      runTotals.totalPayout += d.totalPayout || 0;
+      if(d.totalPayout != null) runTotals.counted++;
+      return '<tr class="pay202-paid-row"><td>' + emp.name + ' <span style="font-size:9px;color:var(--green)">\uD83D\uDD12</span></td>' + cells.map(c=>'<td>'+c+'</td>').join('') + toggleCell + '</tr>';
+    }
     const basicRate = parseFloat(emp.basic_pay_rate) || 0;
     const currency = emp.currency || 'PHP';
+
 
     // Overtime hours (hours over 8 worked on any day) and regular hours "accounted for" — actual hours
     // worked plus paid leave hours (Sick/Annual), combined and capped at 8/day. A weekday with neither
@@ -2062,7 +2189,8 @@ function renderPay202(){
     if(totalPayout != null) runTotals.counted++;
 
     const hasManualEntry = !!(othersUSD || thirteenth || otherPHP || (pay202EntryFor(emp.id) && pay202EntryFor(emp.id).note));
-    return `<tr${hasManualEntry ? ' class="pay202-has-entry"' : ''}><td>${emp.name}${hasManualEntry ? ' <span class="pay202-entry-dot" title="Has manual entries this period"></span>' : ''}</td>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
+    const toggleCellLive = `<td style="text-align:center"><label class="pay202-toggle" title="Mark as paid to lock this row"><input type="checkbox" onchange="togglePay202Paid('${emp.id}',this.checked)"><span class="pay202-toggle-slider"></span></label></td>`;
+    return `<tr${hasManualEntry ? ' class="pay202-has-entry"' : ''}><td>${emp.name}${hasManualEntry ? ' <span class="pay202-entry-dot" title="Has manual entries this period"></span>' : ''}</td>${cells.map(c => `<td>${c}</td>`).join('')}${toggleCellLive}</tr>`;
   }).join('');
 
   const blanks = (n) => Array(n).fill('<td></td>').join('');
@@ -2073,6 +2201,7 @@ function renderPay202(){
     ${blanks(5)}
     <td>${fmtMoney(runTotals.totalPHP)}</td>
     <td>${fmtMoney(runTotals.totalPayout)}</td>
+    <td></td>
   </tr>`;
 
   const warn = rate ? '' : `<div style="padding:8px 14px;font-size:11.5px;color:var(--amber);border-bottom:1px solid var(--border)">Enter this period's Ebury Conversion Rate to compute payouts.</div>`;
