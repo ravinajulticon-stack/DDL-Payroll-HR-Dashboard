@@ -1878,8 +1878,12 @@ async function markAsPaid(empId){
   if(exitFallsInPeriod(emp,pay202SelectedPeriod)){ leavePayoutNative=annualLeavePayoutNative(emp)||0; }
   const leavePayoutUSD=currency==='USD'?leavePayoutNative:(rate?leavePayoutNative/rate:null);
   const homeOfficeUSD=emp.home_office?(parseFloat(emp.home_office_amount)||0):0;
-  const maxicare=parseFloat(emp.insurance_amount)||0;
-  const sssPHP=emp.sss_enrolled?(parseFloat(emp.sss_amount)||0):0;
+  const periodMonthNum=parseInt(pay202SelectedPeriod.slice(5));
+  const SSS_MONTHS=[1,4,7,10]; const MAXI_MONTHS={1:[1,4,7,10],2:[2,5,8,11],3:[3,6,9,12]};
+  const sssApplies=SSS_MONTHS.includes(periodMonthNum);
+  const maxiApplies=emp.maxicare_quarter?(MAXI_MONTHS[emp.maxicare_quarter]||[]).includes(periodMonthNum):false;
+  const maxicare=maxiApplies?(parseFloat(emp.insurance_amount)||0):0;
+  const sssPHP=sssApplies&&emp.sss_enrolled?(parseFloat(emp.sss_amount)||0):0;
   const othersUSD=pay202Val(emp.id,'others_usd')||0;
   const thirteenth=pay202Val(emp.id,'thirteenth')||0;
   const otherPHP=pay202Val(emp.id,'other_php')||0;
@@ -2137,8 +2141,15 @@ function renderPay202(){
 
     // Fixed per-employee amounts from Employee 201, applied only when the matching flag is ticked.
     const homeOfficeUSD = emp.home_office ? (parseFloat(emp.home_office_amount) || 0) : 0;
-    const maxicare = parseFloat(emp.insurance_amount) || 0;
-    const sssPHP = emp.sss_enrolled ? (parseFloat(emp.sss_amount) || 0) : 0;
+    // Quarterly schedule: SSS is always Jan/Apr/Jul/Oct (months 1,4,7,10).
+    // Maxicare quarter: 1 = Jan/Apr/Jul/Oct, 2 = Feb/May/Aug/Nov, 3 = Mar/Jun/Sep/Dec.
+    const periodMonthNum = parseInt(pay202SelectedPeriod.slice(5));
+    const SSS_MONTHS = [1, 4, 7, 10];
+    const MAXI_MONTHS = { 1:[1,4,7,10], 2:[2,5,8,11], 3:[3,6,9,12] };
+    const sssApplies    = SSS_MONTHS.includes(periodMonthNum);
+    const maxiApplies   = emp.maxicare_quarter ? (MAXI_MONTHS[emp.maxicare_quarter]||[]).includes(periodMonthNum) : false;
+    const maxicare = maxiApplies ? (parseFloat(emp.insurance_amount) || 0) : 0;
+    const sssPHP = sssApplies && emp.sss_enrolled ? (parseFloat(emp.sss_amount) || 0) : 0;
 
     // Manual per-period figures.
     // Auto-compute Double Pay: 1× extra hourly for each hour worked on a VIC public holiday in this period.
