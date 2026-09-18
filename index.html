@@ -1885,7 +1885,15 @@ async function markAsPaid(empId){
   const maxicare=maxiApplies?(parseFloat(emp.insurance_amount)||0):0;
   const sssPHP=sssApplies&&emp.sss_enrolled?(parseFloat(emp.sss_amount)||0):0;
   const othersUSD=pay202Val(emp.id,'others_usd')||0;
-  const thirteenth=pay202Val(emp.id,'thirteenth')||0;
+  const THIRTEENTH_Q=[3,6,9,12];
+  let thirteenth=0;
+  if(THIRTEENTH_Q.includes(periodMonthNum)&&!exitFallsInPeriod(emp,pay202SelectedPeriod)){
+    const [py,pm]=pay202SelectedPeriod.split('-').map(Number);
+    const qStarts=[2,1,0].map(off=>{ let m=pm-1-off,y=py; if(m<=0){m+=12;y-=1;} return `${y}-${String(m).padStart(2,'0')}-11`; });
+    const empStart=emp.start_date||null;
+    const periodsActive=empStart?qStarts.filter(qs=>empStart<=qs).length:3;
+    if(periodsActive>0){ const thirteenthNative=(basicRate/4)*(periodsActive/3); thirteenth=currency==='PHP'?thirteenthNative:(rate?thirteenthNative*rate:0); }
+  }
   const otherPHP=pay202Val(emp.id,'other_php')||0;
   const bankFees=BANK_FEE_USD;
   const note=(pay202EntryFor(emp.id)&&pay202EntryFor(emp.id).note)||'';
@@ -2164,7 +2172,25 @@ function renderPay202(){
     const doublePay = currency === 'USD' ? doublePayNative : (rate ? doublePayNative / rate : 0);
     const othersUSD = pay202Val(emp.id, 'others_usd') || 0;
     const bankFees  = BANK_FEE_USD;
-    const thirteenth = pay202Val(emp.id, 'thirteenth') || 0;
+    // 13th month pay: paid quarterly (Mar/Jun/Sep/Dec), auto-computed from start_date and basicRate.
+    // Quarter period starts = 11th of each of the 3 months leading into the payment month.
+    // Employee counts for a period if start_date <= that period's start date (null = full tenure).
+    const THIRTEENTH_Q = [3, 6, 9, 12];
+    let thirteenth = 0;
+    if (THIRTEENTH_Q.includes(periodMonthNum) && !exitFallsInPeriod(emp, pay202SelectedPeriod)) {
+      const [py, pm] = pay202SelectedPeriod.split('-').map(Number);
+      const qStarts = [2, 1, 0].map(off => {
+        let m = pm - 1 - off, y = py;
+        if (m <= 0) { m += 12; y -= 1; }
+        return `${y}-${String(m).padStart(2,'0')}-11`;
+      });
+      const empStart = emp.start_date || null;
+      const periodsActive = empStart ? qStarts.filter(qs => empStart <= qs).length : 3;
+      if (periodsActive > 0) {
+        const thirteenthNative = (basicRate / 4) * (periodsActive / 3);
+        thirteenth = currency === 'PHP' ? thirteenthNative : (rate ? thirteenthNative * rate : 0);
+      }
+    }
     const otherPHP  = pay202Val(emp.id, 'other_php')  || 0;
 
     const totalUSD = (monthlyPayUSD != null && overtimeUSD != null && (leavePayoutNative === 0 || leavePayoutUSD != null))
@@ -2186,7 +2212,7 @@ function renderPay202(){
       cell(eburyPHP),                                   // Ebury USD/PHP
       maxicare ? fmtMoney(maxicare) : '\u2014',         // Maxicare
       sssPHP ? fmtMoney(sssPHP) : '\u2014',             // SSS
-      pay202MoneyCell(emp.id, 'thirteenth'),            // 13th
+      thirteenth ? fmtMoney(thirteenth) : '—',            // 13th (auto)
       pay202MoneyCell(emp.id, 'other_php'),             // Other (PHP)
       pay202NoteCell(emp.id),                           // Note
       totalPHP ? fmtMoney(totalPHP) : '\u2014',         // Total PHP
