@@ -565,7 +565,7 @@ body {
 .lb-tile-edit-btn:hover{ background:var(--surface-3); color:var(--text); }
 .lb-tile.exited{ border-top-color:var(--green); box-shadow:0 0 0 1px rgba(48,209,88,0.45), 0 2px 14px rgba(48,209,88,0.28); }
 .lb-tile-exit-tag{ font-size:8px; text-transform:uppercase; letter-spacing:0.5px; color:var(--green); margin-top:4px; font-weight:600; }
-.ps-sheet{ background:#fff; color:#1a1a1a; border-radius:10px; padding:28px 32px; margin-bottom:18px; box-shadow:0 2px 16px rgba(0,0,0,0.4); }
+.ps-sheet{ background:#fff; color:#1a1a1a; border-radius:10px; padding:30px 34px; margin:0 auto 18px; box-shadow:0 2px 16px rgba(0,0,0,0.4); max-width:860px; }
 .ps-top{ display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #f26522; padding-bottom:12px; margin-bottom:16px; }
 .ps-co{ font-size:24px; font-weight:800; color:#f26522; letter-spacing:-0.5px; }
 .ps-addr{ font-size:10.5px; color:#3b5bdb; margin-top:3px; }
@@ -2807,7 +2807,7 @@ async function downloadAllPayslips(){
     var pdf = new jsPDF('p','mm','a4');
     var pw = pdf.internal.pageSize.getWidth();
     var ih = canvas.height * pw / canvas.width;
-    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pw, ih);
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pw, ih);
     pdf.save(psFileName(PAYSLIP_ROWS[i]));
     await new Promise(function(r){ setTimeout(r, 500); });
   }
