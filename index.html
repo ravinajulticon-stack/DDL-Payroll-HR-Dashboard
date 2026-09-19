@@ -605,6 +605,15 @@ body {
 .ov-sub{ font-size:10.5px; color:rgba(255,255,255,0.78); margin-top:6px; line-height:1.5; }
 .ov-bar{ height:5px; background:rgba(255,255,255,0.28); border-radius:3px; overflow:hidden; margin-top:8px; }
 .ov-bar-fill{ height:100%; background:#fff; border-radius:3px; }
+.prev-table{ width:100%; border-collapse:collapse; }
+.prev-table th{ background:var(--surface-3); font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-3); padding:8px 12px; text-align:left; position:sticky; top:0; }
+.prev-table th.num, .prev-table td.num{ text-align:right; }
+.prev-table td{ font-size:12px; padding:8px 12px; border-bottom:1px solid var(--border); color:var(--text-2); white-space:nowrap; }
+.prev-table td.strong{ color:var(--text); font-weight:700; }
+.prev-table tbody tr:hover td{ background:rgba(0,0,0,0.02); }
+.prev-delta{ font-size:10.5px; font-weight:700; }
+.prev-delta.up{ color:#a35b00; }
+.prev-delta.down{ color:#1e7a35; }
 .ov-panels{ display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:1px; background:var(--border); border-top:1px solid var(--border); }
 .ov-panel{ background:var(--surface-1); padding:13px 15px 8px; }
 .ov-panel-lbl{ font-size:9.5px; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-3); font-weight:600; }
@@ -1081,6 +1090,7 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
       </div>
     </div>
     <div id="pay202Body"></div>
+    <div id="pay202PrevBody"></div>
   </div>
 
 </div>
@@ -3915,6 +3925,7 @@ async function loadPay202EburyRate(){
   await loadPay202Entries();
   await loadPay202Snapshots();
   renderPay202();   // snapshots decide the Paid state, so redraw once they're in
+  loadPrevRun();
 }
 
 // Per-employee, per-period manual figures (Double Pay, Others, Bank Fees, 13th, Other PHP, Note).
@@ -4026,6 +4037,76 @@ function pay202NoteCell(employeeId, field){
   return `<input type="text" class="pay202-input pay202-note" value="${val}" placeholder="\u2014"
     onchange="savePay202Entry('${employeeId}',(field || 'note'),this.value)"
     onkeydown="if(event.key==='Enter') this.blur()">`;
+}
+
+/* PREVIOUS PAY RUN SNAPSHOT (Employee 202) */
+let PREV_RUN = [];
+let prevRunFor = null;
+
+function prevPeriodOf(periodStr){
+  var p = periodStr.split('-').map(Number);
+  var m = p[1] - 2;
+  var y = p[0] + Math.floor(m/12);
+  return y + '-' + String((m%12+12)%12 + 1).padStart(2,'0');
+}
+
+async function loadPrevRun(){
+  var prev = prevPeriodOf(pay202SelectedPeriod);
+  var payDate = prev + '-15';
+  if(prevRunFor === payDate){ renderPrevRun(); return; }
+  const { data, error } = await sb.from('employee_500').select('*').eq('pay_date', payDate).order('employee_name');
+  PREV_RUN = error ? [] : (data || []);
+  prevRunFor = payDate;
+  renderPrevRun();
+}
+
+function renderPrevRun(){
+  var host = document.getElementById('pay202PrevBody');
+  if(!host) return;
+  var prev = prevPeriodOf(pay202SelectedPeriod);
+  var MNF = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var lbl = MNF[parseInt(prev.slice(5,7))-1] + ' ' + prev.slice(0,4);
+  if(!PREV_RUN.length){
+    host.innerHTML = '<div class="card"><div class="card-header"><span class="card-title">Previous Pay Run</span>'
+      + '<span class="rec-count">' + lbl + '</span></div>'
+      + '<div style="padding:22px;text-align:center;color:var(--text-3);font-size:12px">No finalised payroll for ' + lbl + '.</div></div>';
+    return;
+  }
+  var money = function(v){ return v ? fmtMoney(v) : '\u2014'; };
+  var total = 0;
+  var rows = PREV_RUN.map(function(r){
+    var payout = parseFloat(r.total_payout) || 0;
+    total += payout;
+    // compare against the same person in the period on screen
+    var emp = EMP201.find(function(e){ return e.name === r.employee_name; });
+    var cur = null;
+    if(emp){
+      var snap = PAY202_SNAPSHOTS.find(function(s){ return s.employee_id === emp.id && s.is_paid; });
+      if(snap && snap.data) cur = parseFloat(snap.data.totalPayout) || 0;
+    }
+    var delta = '';
+    if(cur != null && payout){
+      var pc = (cur - payout) / payout * 100;
+      delta = '<span class="prev-delta ' + (pc >= 0 ? 'up' : 'down') + '">' + (pc>=0?'\u25b2':'\u25bc') + ' ' + Math.abs(pc).toFixed(1) + '%</span>';
+    }
+    return '<tr>'
+      + '<td>' + r.employee_name + '</td>'
+      + '<td class="num">' + money(r.standard_pay) + '</td>'
+      + '<td class="num">' + money(r.overtime_pay) + '</td>'
+      + '<td class="num">' + money(r.thirteenth_php) + '</td>'
+      + '<td class="num">' + (r.loan_php ? '<span style="color:#a35b00">' + fmtMoney(r.loan_php) + '</span>' : '\u2014') + '</td>'
+      + '<td class="num strong">' + "₱" + fmtMoney(payout) + '</td>'
+      + '<td class="num">' + delta + '</td>'
+      + '</tr>';
+  }).join('');
+
+  host.innerHTML = '<div class="card">'
+    + '<div class="card-header"><span class="card-title">Previous Pay Run</span>'
+    +   '<span class="rec-count">' + lbl + ' \u00b7 ' + PREV_RUN.length + ' paid \u00b7 ' + "₱" + fmtMoney(total) + '</span></div>'
+    + '<div class="tbl-scroll"><table class="prev-table">'
+    +   '<thead><tr><th>Name</th><th class="num">Standard</th><th class="num">Overtime</th><th class="num">13th</th><th class="num">Loan</th><th class="num">Total Payout</th><th class="num">vs now</th></tr></thead>'
+    +   '<tbody>' + rows + '</tbody></table></div>'
+    + '</div>';
 }
 
 function renderPay202(){
