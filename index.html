@@ -3104,8 +3104,8 @@ function ovIssues(periodStr){
   var rt = ovRateFor(periodStr);
   var r = ovPeriodRange(periodStr);
 
-  if(!rt || rt.ebury_rate == null) out.push({ sev:'high', text:'Ebury USD/PHP rate not set', hint:'Set it before computing pay', go:'pay202' });
-  if(!rt || rt.aud_rate == null) out.push({ sev:'med', text:'Ebury AUD rate not set', hint:'AUD column will stay blank', go:'pay202' });
+  if(!rt || rt.ebury_rate == null) out.push({ sev:'high', text:'Ebury USD/PHP rate not set', hint:'Needed to compute pay', go:'pay202' });
+  if(!rt || rt.aud_rate == null) out.push({ sev:'med', text:'Ebury AUD/PHP rate not set', hint:'Needed for the AUD column', go:'pay202' });
 
   var unpaid = st.expected - st.paid;
   if(unpaid > 0) out.push({ sev: st.paid ? 'med' : 'high', text: unpaid + ' employee' + (unpaid!==1?'s':'') + ' not yet marked paid', hint: st.paid + ' of ' + st.expected + ' done', go:'pay202' });
