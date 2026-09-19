@@ -530,6 +530,9 @@ body {
 .ts-grid-table th.ts-total-col:nth-child(2), .ts-grid-table td.ts-total-col:nth-child(2){ left:180px; }
 .ts-grid-table th.ts-total-col:nth-child(3), .ts-grid-table td.ts-total-col:nth-child(3){ left:260px; }
 .ts-grid-table tbody tr:hover td.ts-total-col{ background:#eef3fb; }
+.ts-grid-table tr.ts-row-done td{ background:rgba(52,199,89,0.07); }
+.ts-grid-table tr.ts-row-done td:first-child{ box-shadow:inset 3px 0 0 var(--green); font-weight:600; }
+.ts-grid-table tr.ts-row-done:hover td{ background:rgba(52,199,89,0.13); }
 .pay202-input{ width:100%; min-width:0 !important; background:#ffffff; border:1px solid var(--border); color:var(--text); padding:4px 6px; border-radius:5px; font-size:11.5px; font-family:inherit; text-align:right; }
 .pay202-input:hover{ border-color:var(--text-3); background:#fff; }
 .pay202-input:focus{ outline:none; border-color:var(--blue); background:#ffffff; box-shadow:0 0 0 3px rgba(0,122,255,0.12); }
@@ -1722,7 +1725,19 @@ function renderTimesheetGrid(){
       })() : '';
       return `<td><input type="number" step="0.5" min="0" placeholder="\u2014" value="${val}" onchange="updateTimesheetHours('${emp.id}','${d.date}',this.value)">${badge}</td>`;
     }).join('');
-    return `<tr><td>${emp.name}</td><td class="ts-total-col">${fmtHrs(totalHours)}</td><td class="ts-total-col">${fmtHrs(totalOt)}</td>${cells}</tr>`;
+    // A row counts as complete when every working day is accounted for:
+    // hours entered, on leave, a public holiday, or outside their employment dates.
+    var _done = days.every(function(d){
+      var _dow = new Date(d.date + 'T00:00:00').getDay();
+      if(_dow === 0 || _dow === 6) return true;
+      if(emp.exit_date && d.date > emp.exit_date) return true;
+      if(emp.start_date && d.date < emp.start_date) return true;
+      if(leaveOn(emp.id, d.date)) return true;
+      if(typeof VIC_HOLIDAYS !== 'undefined' && VIC_HOLIDAYS.some(function(h){ return h.date === d.date; })) return true;
+      var e = TIMESHEET_ENTRIES.find(function(x){ return x.employee_id === emp.id && x.work_date === d.date; });
+      return !!(e && e.hours_worked !== null && e.hours_worked !== undefined && e.hours_worked !== '');
+    });
+    return `<tr class="${_done ? 'ts-row-done' : ''}"><td>${emp.name}</td><td class="ts-total-col">${fmtHrs(totalHours)}</td><td class="ts-total-col">${fmtHrs(totalOt)}</td>${cells}</tr>`;
   }).join('');
 
   // Save horizontal scroll position before replacing innerHTML, restore after — prevents the grid
