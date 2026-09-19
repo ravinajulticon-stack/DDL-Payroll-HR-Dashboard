@@ -589,6 +589,15 @@ body {
 .ov-sub{ font-size:10.5px; color:rgba(255,255,255,0.78); margin-top:6px; line-height:1.5; }
 .ov-bar{ height:5px; background:rgba(255,255,255,0.28); border-radius:3px; overflow:hidden; margin-top:8px; }
 .ov-bar-fill{ height:100%; background:#fff; border-radius:3px; }
+.ov-panels{ display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:1px; background:var(--border); border-top:1px solid var(--border); }
+.ov-panel{ background:var(--surface-1); padding:13px 15px 8px; }
+.ov-panel-lbl{ font-size:9.5px; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-3); font-weight:600; }
+.ov-panel-row{ display:flex; align-items:baseline; gap:8px; margin-top:4px; }
+.ov-panel-val{ font-size:19px; font-weight:700; color:var(--text); letter-spacing:-0.4px; }
+.ov-panel-delta{ font-size:10.5px; font-weight:700; }
+.ov-panel-delta.warn{ color:#a35b00; }
+.ov-panel-delta.ok{ color:#1e7a35; }
+.ov-spark{ width:100%; height:auto; margin-top:6px; color:var(--text-2); display:block; }
 .ov-mixwrap{ padding:4px 18px 16px; }
 .ov-mixlbl{ font-size:9.5px; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-3); font-weight:600; margin-bottom:7px; }
 .ov-mixbar{ display:flex; height:12px; border-radius:6px; overflow:hidden; background:var(--surface-3); }
@@ -3342,110 +3351,8 @@ function ovMixChart(){
     + '</div>';
 }
 
-function ovTrendChart(){
-  var by = {}, heads = {};
-  OV_HISTORY.forEach(function(r){
-    var k = r.pay_date;
-    if(!by[k]){ by[k] = { total:0, th:0, maxi:0, sss:0 }; heads[k] = 0; }
-    by[k].total += parseFloat(r.total_payout)||0;
-    by[k].th    += parseFloat(r.thirteenth_php)||0;
-    by[k].maxi  += parseFloat(r.maxicare_php)||0;
-    by[k].sss   += parseFloat(r.sss_php)||0;
-    heads[k] += 1;
-  });
-  var keys = Object.keys(by).sort().slice(-12);
-  if(!keys.length) return '<p style="padding:16px;color:var(--text-3);font-size:12px">No payroll history yet.</p>';
+undefined
 
-  var MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  OV_TREND = keys.map(function(k){
-    var b = by[k], n = heads[k] || 1;
-    var m = parseInt(k.slice(5,7));
-    return { period: k.slice(0,7), label: MN[m-1] + ' ' + k.slice(0,4), mon: MN[m-1], yr: k.slice(2,4),
-             total: b.total, th: b.th, maxi: b.maxi, sss: b.sss,
-             base: b.total - b.th - b.maxi - b.sss, perHead: b.total / n, heads: n };
-  });
-
-  var view = ovTrendView;
-  var stacks = view === 'split'
-    ? [ {k:'base', c:'#007aff', t:'#4da2ff', s:'#0056b3', n:'Base pay'},
-        {k:'th',   c:'#af52de', t:'#c77ce8', s:'#8e3fbe', n:'13th month'},
-        {k:'maxi', c:'#34c759', t:'#63d67f', s:'#248a3d', n:'Maxicare'},
-        {k:'sss',  c:'#ff9500', t:'#ffb04d', s:'#c26f00', n:'SSS'} ]
-    : [ view === 'head'
-        ? {k:'perHead', c:'#34c759', t:'#63d67f', s:'#248a3d', n:'Cost per employee'}
-        : {k:'total',   c:'#007aff', t:'#4da2ff', s:'#0056b3', n:'Total payout'} ];
-
-  var totals = OV_TREND.map(function(d){
-    return stacks.reduce(function(a,s){ return a + (d[s.k]||0); }, 0);
-  });
-  var max = Math.max.apply(null, totals) || 1;
-  max = max * 1.12;
-
-  var w = 1000, h = 232, padL = 52, padR = 26, padT = 18, padB = 54;
-  var plotW = w - padL - padR, plotH = h - padT - padB;
-  var n = OV_TREND.length, slot = plotW / n;
-  var bw = Math.min(slot * 0.46, 30), dx = Math.min(slot * 0.15, 9), dy = dx * 0.66;
-  var yFor = function(v){ return padT + plotH - plotH * (v / max); };
-
-  var grid = '';
-  for(var vi = 0; vi < n; vi++){
-    var vx = padL + vi*slot + slot/2;
-    grid += '<line x1="' + vx + '" y1="' + padT + '" x2="' + vx + '" y2="' + (padT+plotH) + '" stroke="currentColor" stroke-opacity="0.05"/>';
-  }
-  for(var g = 0; g <= 4; g++){
-    var gv = max * g / 4, gy = yFor(gv);
-    grid += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (w-padR) + '" y2="' + gy + '" stroke="currentColor" stroke-opacity="0.10"/>'
-      + '<line x1="' + (w-padR) + '" y1="' + gy + '" x2="' + (w-padR+dx) + '" y2="' + (gy-dy) + '" stroke="currentColor" stroke-opacity="0.06"/>'
-      + '<text x="' + (padL-12) + '" y="' + (gy+4) + '" text-anchor="end" font-size="9.5" fill="currentColor" opacity="0.42">' + Math.round(gv/1000) + 'k</text>';
-  }
-
-  var bars = OV_TREND.map(function(d, i){
-    var x = padL + i*slot + (slot - bw)/2;
-    var baseY = padT + plotH, run = 0, faces = '';
-    stacks.forEach(function(s, si){
-      var v = d[s.k] || 0;
-      if(v <= 0) return;
-      var segH = plotH * (v / max);
-      var yTop = baseY - run - segH;
-      faces += '<polygon points="' + (x+bw) + ',' + yTop + ' ' + (x+bw+dx) + ',' + (yTop-dy) + ' ' + (x+bw+dx) + ',' + (yTop+segH-dy) + ' ' + (x+bw) + ',' + (yTop+segH) + '" fill="' + s.s + '"/>';
-      faces += '<rect x="' + x + '" y="' + yTop + '" width="' + bw + '" height="' + segH + '" fill="' + s.c + '"/>';
-      if(si === stacks.length - 1 || run + segH >= (baseY - yTop) - 0.5){
-        faces += '<polygon points="' + x + ',' + yTop + ' ' + (x+dx) + ',' + (yTop-dy) + ' ' + (x+bw+dx) + ',' + (yTop-dy) + ' ' + (x+bw) + ',' + yTop + '" fill="' + s.t + '"/>';
-      }
-      run += segH;
-    });
-    var topY = baseY - run;
-    var tot = stacks.reduce(function(a,s){ return a + (d[s.k]||0); }, 0);
-    return '<g class="ov-iso" onmouseover="ovTrendHover(' + i + ')" onclick="ovTrendOpen(' + i + ')" style="cursor:pointer">'
-      + '<rect x="' + (x-slot*0.24) + '" y="' + padT + '" width="' + (slot*0.98) + '" height="' + plotH + '" fill="transparent"/>'
-      + faces
-      + '<text x="' + (x + bw/2 + dx/2) + '" y="' + (topY - dy - 9) + '" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor" opacity="0.72">' + Math.round(tot/1000) + 'k</text>'
-      + '<text x="' + (x + bw/2) + '" y="' + (h-20) + '" text-anchor="end" font-size="9.5" fill="currentColor" opacity="0.5" transform="rotate(-45 ' + (x + bw/2) + ' ' + (h-20) + ')">' + d.mon + " '" + d.yr + '</text>'
-      + '</g>';
-  }).join('');
-
-  var legend = '<div class="ov-legend">' + stacks.map(function(s){ return '<span class="ov-leg"><i style="background:' + s.c + '"></i>' + s.n + '</span>'; }).join('') + '</div>';
-
-  var latest = OV_TREND[OV_TREND.length-1];
-  var lv = view === 'head' ? latest.perHead : latest.total;
-  var allv = OV_TREND.map(function(x){ return view === 'head' ? x.perHead : x.total; });
-  var avg = allv.reduce(function(a,b){ return a+b; }, 0) / allv.length;
-  var pct = avg ? (lv - avg) / avg * 100 : 0;
-
-  var tabs = [['total','Total'],['split','Split'],['head','Per head']].map(function(p){
-    return '<button class="ov-tab' + (view===p[0] ? ' on' : '') + '" onclick="ovSetTrendView(\'' + p[0] + '\')">' + p[1] + '</button>';
-  }).join('');
-
-  return '<div class="ov-trend-head">'
-    + '<div><div class="ov-trend-val" id="ovTrendVal">' + "₱" + fmtMoney(lv) + '</div>'
-    +   '<div class="ov-trend-meta"><span id="ovTrendPeriod">' + latest.label + '</span>'
-    +   '<span class="ov-pill ' + (pct>=0?'warn':'ok') + '" id="ovTrendPill">' + (pct>=0?'+':'') + pct.toFixed(1) + '% vs avg</span></div></div>'
-    + '<div class="ov-tabs">' + tabs + '</div>'
-    + '</div>'
-    + legend
-    + '<div class="ov-trend-wrap"><svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;color:var(--text-2)">' + grid + bars + '</svg></div>'
-    + '<div class="ov-trend-foot">Hover a bar for detail \u00b7 click to jump to that period</div>';
-}
 
 function renderOverview(){
   var c = document.getElementById('overviewBody');
@@ -3508,9 +3415,8 @@ function renderOverview(){
     + '</div>'
     + '<div class="card">'
     +   '<div class="card-header"><span class="card-title">Payroll Cost Trend</span>'
-    +   '<span class="rec-count">Total payout per pay date \u00b7 last 12</span></div>'
-    +   ovTrendChart()
-    +   ovMixChart()
+    +   '<span class="rec-count">Last 12 pay periods \u00b7 latest highlighted</span></div>'
+    +   ovAnalytics()
     + '</div>';
 
   var pi = document.getElementById('ovPeriodInput');
