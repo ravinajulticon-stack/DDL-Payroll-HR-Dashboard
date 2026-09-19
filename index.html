@@ -4089,6 +4089,8 @@ function renderPrevRun(){
   var head = '<tr>' + cols.map(function(c){ return '<th>' + c + '</th>'; }).join('') + '</tr>';
 
   var tot = { usd:0, ebury:0, php:0, payout:0 };
+  // the header reports the whole run, not just the employees still on the roster
+  var fullTotal = PREV_RUN.reduce(function(a,x){ return a + (parseFloat(x.total_payout)||0); }, 0);
   // Mirror the employee list on screen so rows line up one-for-one.
   var pp = pay202SelectedPeriod.split('-').map(Number);
   var sM = pp[1]-1, sY = pp[0];
@@ -4149,7 +4151,7 @@ function renderPrevRun(){
 
   host.innerHTML = '<div class="card">'
     + '<div class="card-header"><span class="card-title">Previous Pay Run</span>'
-    +   '<span class="rec-count">' + lbl + ' \u00b7 ' + PREV_RUN.length + ' paid \u00b7 ' + "₱" + fmtMoney(tot.payout) + '</span></div>'
+    +   '<span class="rec-count">' + lbl + ' \u00b7 ' + PREV_RUN.length + ' paid \u00b7 ' + "₱" + fmtMoney(fullTotal) + '</span></div>'
     + '<div class="tbl-scroll"><table class="rec-table pay202-table prev-run"><thead>' + head + '</thead><tbody>' + rows + foot + '</tbody></table></div>'
     + '</div>';
 
