@@ -3333,8 +3333,8 @@ function renderOverview(){
     + ovTile('Timesheet Gaps', gaps.total ? gaps.total + ' days' : 'Complete', gaps.staff.length ? gaps.staff.slice(0,3).map(function(s){ return s.name.split(' ')[0] + ' ' + s.miss + 'd'; }).join(' \u00b7 ') : 'All weekdays recorded', gaps.total ? 'warn' : 'ok')
     + ovTile('SSS to Remit', st.sss ? "₱" + fmtMoney(st.sss) : "—", 'Jan / Apr / Jul / Oct')
     + ovTile('Maxicare to Remit', st.maxicare ? "₱" + fmtMoney(st.maxicare) : "—", 'Quarterly per employee')
-    + ovTile('13th Month Accrued', st.thirteenth ? "₱" + fmtMoney(st.thirteenth) : "—", 'Mar / Jun / Sep / Dec');
-    + ovTile('Leave Liability', "₱" + fmtMoney(liab.php + (bestRate.rate ? liab.usd * bestRate.rate : 0)), 'Annual Leave owed as at ' + r.end + (bestRate.estimated ? ' \u00b7 est. rate ' + bestRate.rate.toFixed(4) : ''))
+    + ovTile('13th Month Accrued', st.thirteenth ? "₱" + fmtMoney(st.thirteenth) : "—", 'Mar / Jun / Sep / Dec')
+    + ovTile('Leave Liability', "₱" + fmtMoney(liab.php + (bestRate.rate ? liab.usd * bestRate.rate : 0)), 'Annual Leave owed as at ' + r.end + (bestRate.estimated ? ' \u00b7 est. rate ' + bestRate.rate.toFixed(4) : ''));
 
   var run = ovRunRate();
   var nowTiles = ''
