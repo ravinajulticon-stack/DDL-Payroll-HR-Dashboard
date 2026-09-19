@@ -3140,7 +3140,7 @@ function renderLocator(){
     +   '<div class="ov-panel"><div class="ov-panel-lbl">Mindanao</div><div class="ov-panel-row"><span class="ov-panel-val">' + groups.Mindanao + '</span></div></div>'
     +   '<div class="ov-panel"><div class="ov-panel-lbl">Not set</div><div class="ov-panel-row"><span class="ov-panel-val">' + (staff.length - placed) + '</span></div></div>'
     + '</div></div>'
-    + '<div class="card" style="margin-bottom:14px"><div id="phMap" style="height:520px;border-radius:0 0 var(--radius) var(--radius);overflow:hidden"></div></div>'
+    + '<div class="card" style="margin-bottom:14px"><div id="phMap" style="height:760px;border-radius:0 0 var(--radius) var(--radius);overflow:hidden"></div></div>'
     + '<div class="card"><div class="card-header"><span class="card-title">Set Location</span>'
     +   '<span class="rec-count">City only \u2014 no street addresses</span></div>'
     + '<div class="tbl-scroll"><table class="rec-table"><thead><tr><th>Name</th><th>City</th><th>Province</th><th>Island group</th></tr></thead>'
@@ -3153,9 +3153,9 @@ function drawPhMap(staff){
   var el = document.getElementById('phMap');
   if(!el || typeof window.L === 'undefined') return;
   if(locMap){ locMap.remove(); locMap = null; }
-  locMap = window.L.map(el, { scrollWheelZoom:false }).setView([12.0, 122.0], 6);
+  locMap = window.L.map(el, { scrollWheelZoom:false, minZoom:5, maxZoom:13 }).setView([12.0, 122.0], 6);
   window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 12, attribution: '\u00a9 OpenStreetMap'
+    maxZoom: 13, attribution: '\u00a9 OpenStreetMap'
   }).addTo(locMap);
 
   // group employees who share a city so pins don't stack invisibly
@@ -3185,7 +3185,8 @@ function drawPhMap(staff){
     }
   });
 
-  if(pts.length) locMap.fitBounds(pts, { padding:[45,45], maxZoom:9 });
+  // always frame the whole country so islands stay separated
+  locMap.fitBounds([[4.2,116.0],[21.2,127.0]], { padding:[20,20] });
   setTimeout(function(){ if(locMap) locMap.invalidateSize(); }, 250);
 }
 
