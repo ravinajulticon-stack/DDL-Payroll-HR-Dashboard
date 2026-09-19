@@ -3217,7 +3217,13 @@ function drawPhMap(staff){
 
   place();
   locMap.on('zoomend', place);
-  setTimeout(function(){ if(locMap){ locMap.invalidateSize(); place(); } }, 250);
+  setTimeout(function(){
+    if(!locMap) return;
+    locMap.invalidateSize();
+    // re-fit once the container has its real size, or the country renders tiny
+    locMap.fitBounds([[4.4,116.5],[20.5,126.8]], { padding:[16,16] });
+    place();
+  }, 300);
 }
 
 
