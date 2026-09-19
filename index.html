@@ -3128,7 +3128,16 @@ function ovComparison(periodStr){
 function ovForecast(periodStr){
   var nextP = ovShiftPeriod(periodStr, 1);
   var nm = parseInt(nextP.slice(5,7));
-  var rate = pay202EburyRate || 0;
+  // Prefer the next period's own rate; otherwise carry the most recent one forward as an estimate.
+  var ownRate = ovRateFor(nextP);
+  var rate = (ownRate && ownRate.ebury_rate != null) ? parseFloat(ownRate.ebury_rate) : 0;
+  var estimated = false;
+  if(!rate){
+    var known = OV_RATES.filter(function(x){ return x.ebury_rate != null; })
+      .sort(function(a,b){ return String(b.period_month).localeCompare(String(a.period_month)); });
+    if(known.length){ rate = parseFloat(known[0].ebury_rate); estimated = true; }
+    else if(pay202EburyRate){ rate = pay202EburyRate; estimated = true; }
+  }
   var emps = ovActiveFor(nextP).filter(function(e){ return !(e.exit_date && e.exit_date < ovPeriodRange(nextP).start); });
 
   var basePhp = 0;
@@ -3152,7 +3161,7 @@ function ovForecast(periodStr){
   }).length;
 
   var MNF = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  return { period: nextP, label: MNF[nm-1] + ' ' + nextP.slice(0,4), headcount: emps.length, basePhp: basePhp, loanPhp: loanPhp, sssDue: sssDue, thDue: thDue, maxiCount: maxiCount };
+  return { period: nextP, label: MNF[nm-1] + ' ' + nextP.slice(0,4), headcount: emps.length, basePhp: basePhp, loanPhp: loanPhp, sssDue: sssDue, thDue: thDue, maxiCount: maxiCount, rate: rate, estimated: estimated };
 }
 
 function ovIssuesPanel(periodStr){
@@ -3185,7 +3194,7 @@ function ovComparePanel(periodStr){
 function ovForecastPanel(periodStr){
   var f = ovForecast(periodStr);
   var items = [];
-  items.push(ovTile('Base Payroll', f.basePhp ? "₱" + fmtMoney(f.basePhp) : '\u2014', f.headcount + ' employees at current rates'));
+  items.push(ovTile('Base Payroll', f.basePhp ? "₱" + fmtMoney(f.basePhp) : '\u2014', f.headcount + ' employees at current rates' + (f.estimated ? ' \u00b7 estimated at ' + f.rate.toFixed(4) : '')));
   items.push(ovTile('Loan Deductions', f.loanPhp ? '\u2212' + "₱" + fmtMoney(Math.abs(f.loanPhp)) : '\u2014', f.loanPhp ? 'Scheduled instalments' : 'None scheduled'));
   var due = [];
   if(f.sssDue) due.push('SSS');
@@ -3279,7 +3288,7 @@ function renderOverview(){
     + '</div>'
     + '<div class="card" style="margin-bottom:14px">'
     +   '<div class="card-header"><span class="card-title">Next Period Forecast</span>'
-    +   '<span class="rec-count">' + ovForecast(ovPeriod).label + ' \u00b7 based on current setup</span></div>'
+    +   '<span class="rec-count">' + ovForecast(ovPeriod).label + (ovForecast(ovPeriod).estimated ? ' \u00b7 USD converted at last known rate' : '') + ' \u00b7 based on current setup</span></div>'
     +   ovForecastPanel(ovPeriod)
     + '</div>'
     + '<div class="card">'
