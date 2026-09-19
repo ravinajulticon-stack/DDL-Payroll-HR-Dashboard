@@ -4143,15 +4143,29 @@ function renderPrevRun(){
 
 // Keep the current and previous tables scrolled together.
 // Keep the current and previous tables scrolled together.
+// Keep the current and previous tables scrolled together.
+// Uses capture-phase listening so it survives table re-renders.
+let prevScrollLock = false;
 function syncPrevScroll(){
   var cur  = document.querySelector('#pay202Body .tbl-scroll');
   var prev = document.querySelector('#pay202PrevBody .tbl-scroll');
-  if(!cur || !prev) return;
-  var lock = false;
-  cur.onscroll = function(){ if(lock) return; lock = true; prev.scrollLeft = cur.scrollLeft; requestAnimationFrame(function(){ lock = false; }); };
-  prev.onscroll = function(){ if(lock) return; lock = true; cur.scrollLeft = prev.scrollLeft; requestAnimationFrame(function(){ lock = false; }); };
-  prev.scrollLeft = cur.scrollLeft;
+  if(cur && prev) prev.scrollLeft = cur.scrollLeft;
 }
+
+document.addEventListener('scroll', function(ev){
+  if(prevScrollLock) return;
+  var el = ev.target;
+  if(!el || !el.classList || !el.classList.contains('tbl-scroll')) return;
+  var inCur  = el.closest('#pay202Body');
+  var inPrev = el.closest('#pay202PrevBody');
+  if(!inCur && !inPrev) return;
+  var other = inCur ? document.querySelector('#pay202PrevBody .tbl-scroll') : document.querySelector('#pay202Body .tbl-scroll');
+  if(!other) return;
+  prevScrollLock = true;
+  other.scrollLeft = el.scrollLeft;
+  requestAnimationFrame(function(){ prevScrollLock = false; });
+}, true);
+
 
 
 
