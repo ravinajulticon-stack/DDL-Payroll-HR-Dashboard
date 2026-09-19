@@ -589,17 +589,25 @@ body {
 .ov-sub{ font-size:10.5px; color:rgba(255,255,255,0.78); margin-top:6px; line-height:1.5; }
 .ov-bar{ height:5px; background:rgba(255,255,255,0.28); border-radius:3px; overflow:hidden; margin-top:8px; }
 .ov-bar-fill{ height:100%; background:#fff; border-radius:3px; }
-.ov-issues{ padding:6px 14px 14px; display:flex; flex-direction:column; gap:1px; }
-.ov-issue{ display:flex; align-items:center; gap:10px; padding:9px 12px; background:var(--surface-2); border-left:3px solid var(--border-strong); border-radius:4px; }
-.ov-issue.high{ border-left-color:#c9271d; }
-.ov-issue.med{ border-left-color:var(--amber); }
-.ov-issue.low{ border-left-color:var(--text-3); }
-.ov-dot{ width:6px; height:6px; border-radius:50%; background:currentColor; opacity:0.5; flex-shrink:0; }
-.ov-issue.high .ov-dot{ background:#ff453a; opacity:1; }
-.ov-issue.med .ov-dot{ background:var(--amber); opacity:1; }
-.ov-issue-txt{ font-size:12px; color:var(--text); flex:1; }
-.ov-issue-hint{ font-size:10.5px; color:var(--text-3); text-align:right; }
-.ov-clear{ padding:16px; text-align:center; font-size:12px; color:var(--green); }
+.ov-cards{ display:grid; grid-template-columns:repeat(auto-fit, minmax(290px, 1fr)); gap:10px; padding:10px 14px 16px; }
+.ov-card{ display:flex; align-items:flex-start; gap:11px; padding:13px 14px; border-radius:var(--radius); background:var(--surface-1);
+  border:1px solid var(--border); border-left:4px solid var(--text-3); box-shadow:0 1px 4px rgba(0,0,0,0.06); transition:all 0.14s; }
+.ov-card.high{ border-left-color:#ff3b30; background:#fff5f5; }
+.ov-card.med{  border-left-color:#ff9500; background:#fff9f0; }
+.ov-card.low{  border-left-color:#8e8e93; background:var(--surface-3); }
+.ov-card.go{ cursor:pointer; }
+.ov-card.go:hover{ transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,0,0,0.12); }
+.ov-card-icon{ width:20px; height:20px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:800; color:#fff; background:var(--text-3); margin-top:1px; }
+.ov-card.high .ov-card-icon{ background:#ff3b30; }
+.ov-card.med .ov-card-icon{ background:#ff9500; }
+.ov-card-body{ flex:1; min-width:0; }
+.ov-card-text{ font-size:12.5px; font-weight:600; color:var(--text); line-height:1.35; }
+.ov-card-hint{ font-size:10.5px; color:var(--text-3); margin-top:3px; }
+.ov-card-arrow{ color:var(--text-3); font-size:17px; line-height:1; align-self:center; }
+.ov-card.go:hover .ov-card-arrow{ color:var(--blue); }
+.ov-clear{ padding:18px; text-align:center; font-size:12.5px; color:var(--green); font-weight:600; }
+.ov-clear-tick{ display:inline-flex; width:18px; height:18px; border-radius:50%; background:var(--green); color:#fff; align-items:center; justify-content:center; font-size:11px; margin-right:7px; vertical-align:middle; }
 .ov-cmp{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:0 16px 14px; }
 .ov-cmp-arrow{ font-size:13px; font-weight:700; }
 .ov-cmp.up .ov-cmp-arrow{ color:var(--amber); }
@@ -3090,16 +3098,16 @@ function ovIssues(periodStr){
   var rt = ovRateFor(periodStr);
   var r = ovPeriodRange(periodStr);
 
-  if(!rt || rt.ebury_rate == null) out.push({ sev:'high', text:'Ebury USD/PHP rate not set for this period', hint:'Employee 202' });
-  if(!rt || rt.aud_rate == null) out.push({ sev:'med', text:'AUD rate not set for this period', hint:'Employee 202' });
+  if(!rt || rt.ebury_rate == null) out.push({ sev:'high', text:'Ebury USD/PHP rate not set', hint:'Set it before computing pay', go:'pay202' });
+  if(!rt || rt.aud_rate == null) out.push({ sev:'med', text:'Ebury AUD rate not set', hint:'AUD column will stay blank', go:'pay202' });
 
   var unpaid = st.expected - st.paid;
-  if(unpaid > 0) out.push({ sev: st.paid ? 'med' : 'high', text: unpaid + ' employee' + (unpaid!==1?'s':'') + ' not yet marked paid', hint:'Employee 202' });
+  if(unpaid > 0) out.push({ sev: st.paid ? 'med' : 'high', text: unpaid + ' employee' + (unpaid!==1?'s':'') + ' not yet marked paid', hint: st.paid + ' of ' + st.expected + ' done', go:'pay202' });
 
-  if(gaps.total > 0) out.push({ sev:'med', text: gaps.total + ' weekday' + (gaps.total!==1?'s':'') + ' missing from timesheets', hint: gaps.staff.slice(0,3).map(function(s){ return s.name.split(' ')[0]; }).join(', ') });
+  if(gaps.total > 0) out.push({ sev:'med', text: gaps.total + ' weekday' + (gaps.total!==1?'s':'') + ' missing from timesheets', hint: gaps.staff.slice(0,3).map(function(s){ return s.name.split(' ')[0]; }).join(', '), go:'timesheet' });
 
   var badSetup = EMP201.filter(function(e){ return e.status==='Active' && (!e.basic_pay_rate || !e.currency); });
-  if(badSetup.length) out.push({ sev:'high', text: badSetup.length + ' active employee' + (badSetup.length!==1?'s':'') + ' missing pay rate or currency', hint: badSetup.map(function(e){return e.name.split(' ')[0];}).join(', ') });
+  if(badSetup.length) out.push({ sev:'high', text: badSetup.length + ' active employee' + (badSetup.length!==1?'s':'') + ' missing pay rate or currency', hint: badSetup.map(function(e){return e.name.split(' ')[0];}).join(', '), go:'detail' });
 
   var nextP = ovShiftPeriod(periodStr, 1);
   SALARY_LOANS.forEach(function(l){
@@ -3107,13 +3115,13 @@ function ovIssues(periodStr){
     var idx = loanInstallmentIndex(l, nextP);
     if(idx === n){
       var e = EMP201.find(function(x){ return x.id === l.employee_id; });
-      out.push({ sev:'low', text:(e?e.name.split(' ')[0]:'A') + "'s loan finishes next period", hint:(l.loan_name||'Loan') + ' \u00b7 final instalment' });
+      out.push({ sev:'low', text:(e?e.name.split(' ')[0]:'A') + "'s loan finishes next period", hint:(l.loan_name||'Loan') + ' \u00b7 final instalment', go:'loans' });
     }
   });
 
   var holsInPeriod = VIC_HOLIDAYS.filter(function(h){ return h.date >= r.start && h.date <= r.end; })
     .filter(function(h){ var d = new Date(h.date + 'T00:00:00').getDay(); return d !== 0 && d !== 6; });
-  if(holsInPeriod.length) out.push({ sev:'low', text: holsInPeriod.length + ' public holiday' + (holsInPeriod.length!==1?'s':'') + ' fell on a weekday', hint:'Check Double Pay \u00b7 ' + holsInPeriod.map(function(h){return h.name;}).slice(0,2).join(', ') });
+  if(holsInPeriod.length) out.push({ sev:'low', text: holsInPeriod.length + ' public holiday' + (holsInPeriod.length!==1?'s':'') + ' fell on a weekday', hint:'Check Double Pay \u00b7 ' + holsInPeriod.map(function(h){return h.name;}).slice(0,2).join(', '), go:'leave' });
 
   var order = { high:0, med:1, low:2 };
   out.sort(function(a,b){ return order[a.sev] - order[b.sev]; });
@@ -3178,20 +3186,33 @@ function ovForecast(periodStr){
   return { period: nextP, label: MNF[nm-1] + ' ' + nextP.slice(0,4), headcount: emps.length, basePhp: basePhp, loanPhp: loanPhp, sssDue: sssDue, thDue: thDue, maxiCount: maxiCount, rate: rate, estimated: estimated };
 }
 
+// Jump to the tab where an issue is fixed.
+function ovGoTo(view){
+  var labels = { detail:'Employee 201', timesheet:'Timesheet', pay202:'Employee 202', leave:'Employee 203', loans:'Employee 204' };
+  var want = labels[view];
+  var btn = Array.prototype.slice.call(document.querySelectorAll('.seg-btn'))
+    .find(function(b){ return b.textContent.trim() === want; });
+  if(btn) btn.click();
+}
+
 function ovIssuesPanel(periodStr){
   var list = ovIssues(periodStr);
   if(!list.length){
-    return '<div class="ov-clear">Nothing needs attention for this period.</div>';
+    return '<div class="ov-clear"><span class="ov-clear-tick">\u2713</span> Nothing needs attention for this period.</div>';
   }
-  return '<div class="ov-issues">' + list.map(function(x){
-    return '<div class="ov-issue ' + x.sev + '">'
-      + '<span class="ov-dot"></span>'
-      + '<span class="ov-issue-txt">' + x.text + '</span>'
-      + (x.hint ? '<span class="ov-issue-hint">' + x.hint + '</span>' : '')
+  var icons = { high:'!', med:'!', low:'i' };
+  return '<div class="ov-cards">' + list.map(function(x){
+    var clickable = x.go ? ' onclick="ovGoTo(\'' + x.go + '\')" role="button" tabindex="0"' : '';
+    return '<div class="ov-card ' + x.sev + (x.go ? ' go' : '') + '"' + clickable + '>'
+      + '<span class="ov-card-icon">' + icons[x.sev] + '</span>'
+      + '<div class="ov-card-body">'
+      +   '<div class="ov-card-text">' + x.text + '</div>'
+      +   (x.hint ? '<div class="ov-card-hint">' + x.hint + '</div>' : '')
+      + '</div>'
+      + (x.go ? '<span class="ov-card-arrow">\u203a</span>' : '')
       + '</div>';
   }).join('') + '</div>';
 }
-
 function ovComparePanel(periodStr){
   var c = ovComparison(periodStr);
   if(!c || !c.prevPayout) return '';
