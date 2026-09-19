@@ -3389,7 +3389,7 @@ function ovSpark(vals, labels, colour, fmtFn, shades){
     var x = i*slot + (slot-bw)/2, y = h - padB - bh;
     var last = i === n-1;
     var op = last ? 1 : 0.30;
-    return '<g class="ov-sbar" opacity="' + op + '" onmouseover="ovPanelsAt(' + i + ')" onmouseout="ovPanelsAt(null)" onclick="ovPanelsOpen(' + i + ')" style="cursor:pointer">'
+    return '<g class="ov-sbar" opacity="' + op + '" onmouseover="ovPanelsAt(' + i + ')" onclick="ovPanelsOpen(' + i + ')" style="cursor:pointer">'
       + '<polygon points="' + (x+bw) + ',' + y + ' ' + (x+bw+dx) + ',' + (y-dy) + ' ' + (x+bw+dx) + ',' + (y+bh-dy) + ' ' + (x+bw) + ',' + (y+bh) + '" fill="' + shades[1] + '"/>'
       + '<polygon points="' + x + ',' + y + ' ' + (x+dx) + ',' + (y-dy) + ' ' + (x+bw+dx) + ',' + (y-dy) + ' ' + (x+bw) + ',' + y + '" fill="' + shades[0] + '"/>'
       + '<rect x="' + x + '" y="' + y + '" width="' + bw + '" height="' + bh + '" fill="' + colour + '">'
@@ -3397,7 +3397,7 @@ function ovSpark(vals, labels, colour, fmtFn, shades){
       + '</g>'
       + (last ? '<text x="' + (x+bw/2+dx/2) + '" y="' + (h-4) + '" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.5">' + labels[i] + '</text>' : '');
   }).join('');
-  return '<svg viewBox="0 0 ' + w + ' ' + h + '" class="ov-spark">' + out + '</svg>';
+  return '<svg viewBox="0 0 ' + w + ' ' + h + '" class="ov-spark" onmouseleave="ovPanelsAt(null)">' + out + '</svg>';
 }
 
 
