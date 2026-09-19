@@ -614,7 +614,7 @@ body {
 .ov-trend-foot{ font-size:10.5px; color:var(--text-3); padding:2px 18px 14px; }
 .ov-legend{ display:flex; flex-wrap:wrap; gap:14px; padding:10px 18px 2px; }
 .ov-leg{ display:inline-flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text-2); }
-.ov-leg i{ width:9px; height:9px; border-radius:2px; display:inline-block; }
+.ov-leg i{ width:10px; height:10px; border-radius:2px; display:inline-block; }
 .ov-trend-wrap{ padding:2px 6px 6px; }
 .ov-bar-g rect{ transition:opacity 0.12s; }
 .ov-trend-wrap:hover .ov-bar-g rect{ opacity:0.55; }
@@ -3381,13 +3381,17 @@ function ovTrendChart(){
   var max = Math.max.apply(null, totals) || 1;
   max = max * 1.12;
 
-  var w = 1000, h = 220, padL = 52, padR = 26, padT = 18, padB = 42;
+  var w = 1000, h = 232, padL = 52, padR = 26, padT = 18, padB = 54;
   var plotW = w - padL - padR, plotH = h - padT - padB;
   var n = OV_TREND.length, slot = plotW / n;
   var bw = Math.min(slot * 0.46, 30), dx = Math.min(slot * 0.15, 9), dy = dx * 0.66;
   var yFor = function(v){ return padT + plotH - plotH * (v / max); };
 
   var grid = '';
+  for(var vi = 0; vi < n; vi++){
+    var vx = padL + vi*slot + slot/2;
+    grid += '<line x1="' + vx + '" y1="' + padT + '" x2="' + vx + '" y2="' + (padT+plotH) + '" stroke="currentColor" stroke-opacity="0.05"/>';
+  }
   for(var g = 0; g <= 4; g++){
     var gv = max * g / 4, gy = yFor(gv);
     grid += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (w-padR) + '" y2="' + gy + '" stroke="currentColor" stroke-opacity="0.10"/>'
@@ -3416,14 +3420,11 @@ function ovTrendChart(){
       + '<rect x="' + (x-slot*0.24) + '" y="' + padT + '" width="' + (slot*0.98) + '" height="' + plotH + '" fill="transparent"/>'
       + faces
       + '<text x="' + (x + bw/2 + dx/2) + '" y="' + (topY - dy - 9) + '" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor" opacity="0.72">' + Math.round(tot/1000) + 'k</text>'
-      + '<text x="' + (x + bw/2) + '" y="' + (h-26) + '" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.5">' + d.mon + '</text>'
-      + '<text x="' + (x + bw/2) + '" y="' + (h-13) + '" text-anchor="middle" font-size="8.5" fill="currentColor" opacity="0.32">' + d.yr + '</text>'
+      + '<text x="' + (x + bw/2) + '" y="' + (h-20) + '" text-anchor="end" font-size="9.5" fill="currentColor" opacity="0.5" transform="rotate(-45 ' + (x + bw/2) + ' ' + (h-20) + ')">' + d.mon + " '" + d.yr + '</text>'
       + '</g>';
   }).join('');
 
-  var legend = view === 'split'
-    ? '<div class="ov-legend">' + stacks.map(function(s){ return '<span class="ov-leg"><i style="background:' + s.c + '"></i>' + s.n + '</span>'; }).join('') + '</div>'
-    : '';
+  var legend = '<div class="ov-legend">' + stacks.map(function(s){ return '<span class="ov-leg"><i style="background:' + s.c + '"></i>' + s.n + '</span>'; }).join('') + '</div>';
 
   var latest = OV_TREND[OV_TREND.length-1];
   var lv = view === 'head' ? latest.perHead : latest.total;
