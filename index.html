@@ -565,6 +565,16 @@ body {
 .lb-tile-edit-btn:hover{ background:var(--surface-3); color:var(--text); }
 .lb-tile.exited{ border-top-color:var(--green); box-shadow:0 0 0 1px rgba(48,209,88,0.45), 0 2px 14px rgba(48,209,88,0.28); }
 .lb-tile-exit-tag{ font-size:8px; text-transform:uppercase; letter-spacing:0.5px; color:var(--green); margin-top:4px; font-weight:600; }
+.ov-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:10px; padding:10px 14px 16px; }
+.ov-tile{ background:var(--surface-2); border:0.5px solid var(--border-strong); border-top:3px solid var(--border-strong); border-radius:var(--radius); padding:12px 14px; box-shadow:0 1px 6px rgba(0,0,0,0.25); }
+.ov-tile.accent{ border-top-color:var(--blue); }
+.ov-tile.ok{ border-top-color:var(--green); }
+.ov-tile.warn{ border-top-color:var(--amber); }
+.ov-lbl{ font-size:9.5px; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-3); font-weight:600; }
+.ov-val{ font-size:22px; font-weight:700; color:var(--text); margin-top:5px; letter-spacing:-0.4px; }
+.ov-sub{ font-size:10.5px; color:var(--text-3); margin-top:5px; line-height:1.5; }
+.ov-bar{ height:5px; background:var(--surface-3); border-radius:3px; overflow:hidden; margin-top:7px; }
+.ov-bar-fill{ height:100%; background:var(--blue); border-radius:3px; }
 .ps-sheet{ background:#fff; color:#1a1a1a; border-radius:10px; padding:30px 34px; margin:0 auto 18px; box-shadow:0 2px 16px rgba(0,0,0,0.4); max-width:860px; }
 .ps-top{ display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #006CE5; padding-bottom:12px; margin-bottom:16px; }
 .ps-co{ font-size:24px; font-weight:800; color:#0A0031; letter-spacing:-0.5px; }
@@ -870,6 +880,7 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
   <!-- OVERVIEW -->
   <div id="overviewView">
     <div class="kpi-strip" id="kpiStrip"></div>
+    <div id="overviewBody"></div>
   </div>
 
   <!-- EMPLOYEE 201 (DETAIL TABLE) -->
@@ -1063,6 +1074,7 @@ function switchView(view, btn){
     renderLeavePanel();
     renderEmpYearCalPanel();
   }
+  if(view === 'overview'){ if(!ovLoaded) loadOverviewData(); else renderOverview(); }
   if(view === 'payslip'){ loadPayslipRows(); }
   if((view === 'loans' || view === 'pay202') && !salaryLoansLoaded){
     salaryLoansLoaded = true;
@@ -2825,6 +2837,220 @@ async function downloadAllPayslips(){
 }
 
 
+
+/* OVERVIEW */
+let ovPeriod = MIN_OPEN_PERIOD;
+let OV_HISTORY = [];
+let OV_PAID = [];
+let ovLoaded = false;
+
+async function loadOverviewData(){
+  if(!leaveEntriesLoaded){ leaveEntriesLoaded = true; await loadLeaveEntries(); }
+  if(!vicHolidaysLoaded){ vicHolidaysLoaded = true; await loadVicHolidays(); }
+  if(!salaryLoansLoaded){ salaryLoansLoaded = true; await loadSalaryLoans(); }
+  if(!timesheetEntriesLoaded){ timesheetEntriesLoaded = true; await loadTimesheetEntries(); }
+  if(!pay202EburyRateLoaded){ pay202EburyRateLoaded = true; await loadPay202EburyRate(); }
+  await loadLoanPaidPeriods();
+  var a = await sb.from('employee_500').select('pay_date,total_payout,maxicare_php,sss_php,thirteenth_php,loan_php');
+  OV_HISTORY = (a.error ? [] : (a.data || []));
+  var b = await sb.from('pay202_snapshots').select('employee_id,period_month,is_paid').eq('is_paid', true);
+  OV_PAID = (b.error ? [] : (b.data || []));
+  ovLoaded = true;
+  renderOverview();
+}
+
+// Period window: 11th of the prior month through the 10th of the pay month.
+function ovPeriodRange(periodStr){
+  var p = periodStr.split('-').map(Number);
+  var sm = p[1]-1, sy = p[0];
+  if(sm <= 0){ sm = 12; sy -= 1; }
+  return {
+    start: sy + '-' + String(sm).padStart(2,'0') + '-11',
+    end: p[0] + '-' + String(p[1]).padStart(2,'0') + '-10',
+    payDate: p[0] + '-' + String(p[1]).padStart(2,'0') + '-15'
+  };
+}
+
+// Employees in scope for a period (exclude anyone who left before it began).
+function ovActiveFor(periodStr){
+  var r = ovPeriodRange(periodStr);
+  return EMP201.filter(function(e){ return !(e.exit_date && e.exit_date < r.start); });
+}
+
+// ---- This Period ----
+function ovPeriodStats(periodStr){
+  var r = ovPeriodRange(periodStr);
+  var rows = OV_HISTORY.filter(function(x){ return x.pay_date === r.payDate; });
+  var payout = rows.reduce(function(a,x){ return a + (parseFloat(x.total_payout)||0); }, 0);
+  var maxi = rows.reduce(function(a,x){ return a + (parseFloat(x.maxicare_php)||0); }, 0);
+  var sss  = rows.reduce(function(a,x){ return a + (parseFloat(x.sss_php)||0); }, 0);
+  var th13 = rows.reduce(function(a,x){ return a + (parseFloat(x.thirteenth_php)||0); }, 0);
+  var loan = rows.reduce(function(a,x){ return a + (parseFloat(x.loan_php)||0); }, 0);
+  var expected = ovActiveFor(periodStr).length;
+  var paid = OV_PAID.filter(function(s){ return String(s.period_month).slice(0,7) === periodStr; }).length;
+  return { payout:payout, maxicare:maxi, sss:sss, thirteenth:th13, loan:loan, expected:expected, paid:paid, rows:rows.length };
+}
+
+// Working days in the period that have no timesheet entry.
+function ovTimesheetGaps(periodStr){
+  var r = ovPeriodRange(periodStr);
+  var emps = ovActiveFor(periodStr);
+  var have = {};
+  TIMESHEET_ENTRIES.forEach(function(t){ have[t.employee_id + '|' + t.work_date] = true; });
+  var gaps = 0, perEmp = [];
+  emps.forEach(function(e){
+    var miss = 0;
+    var d = new Date(r.start + 'T00:00:00'), end = new Date(r.end + 'T00:00:00');
+    while(d <= end){
+      var dow = d.getDay();
+      var ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      var afterExit = e.exit_date && ds > e.exit_date;
+      var beforeStart = e.start_date && ds < e.start_date;
+      if(dow !== 0 && dow !== 6 && !afterExit && !beforeStart && !have[e.id + '|' + ds]) miss++;
+      d.setDate(d.getDate() + 1);
+    }
+    if(miss) perEmp.push({ name: e.name, miss: miss });
+    gaps += miss;
+  });
+  perEmp.sort(function(a,b){ return b.miss - a.miss; });
+  return { total: gaps, staff: perEmp };
+}
+
+// ---- Current Position ----
+function ovLoanOutstanding(){
+  var php = 0, usd = 0, active = 0;
+  SALARY_LOANS.forEach(function(l){
+    var n = parseInt(l.installments) || 0;
+    var s = loanPaidSummary(l);
+    var left = (parseFloat(l.principal)||0) - s.amount;
+    if(left <= 0.01) return;
+    active++;
+    if(l.currency === 'USD') usd += left; else php += left;
+  });
+  return { php: php, usd: usd, count: active };
+}
+
+// What we'd owe if everyone left today: Annual Leave balance x hourly rate.
+function ovLeaveLiability(){
+  var today = new Date();
+  var php = 0, usd = 0;
+  EMP201.filter(function(e){ return e.status === 'Active'; }).forEach(function(e){
+    var bal = leaveBalanceAsOf(e.id, 'Annual Leave', today);
+    if(bal === null || bal <= 0) return;
+    var hourly = (parseFloat(e.basic_pay_rate)||0) * 12 / 52 / 40;
+    var amt = bal * hourly;
+    if(e.currency === 'USD') usd += amt; else php += amt;
+  });
+  return { php: php, usd: usd };
+}
+
+function ovNextHoliday(){
+  var now = new Date();
+  var todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+  var up = VIC_HOLIDAYS.filter(function(h){ return h.date >= todayStr; }).sort(function(a,b){ return a.date.localeCompare(b.date); });
+  if(!up.length) return null;
+  var h = up[0];
+  var days = Math.round((new Date(h.date + 'T00:00:00') - new Date(todayStr + 'T00:00:00')) / 86400000);
+  return { date: h.date, name: h.name, days: days };
+}
+
+function ovUpcomingExits(){
+  var now = new Date();
+  var todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+  return EMP201.filter(function(e){ return e.exit_date && e.exit_date >= todayStr; })
+    .sort(function(a,b){ return a.exit_date.localeCompare(b.exit_date); });
+}
+
+function ovTile(label, value, sub, tone){
+  return '<div class="ov-tile' + (tone ? ' ' + tone : '') + '">'
+    + '<div class="ov-lbl">' + label + '</div>'
+    + '<div class="ov-val">' + value + '</div>'
+    + (sub ? '<div class="ov-sub">' + sub + '</div>' : '')
+    + '</div>';
+}
+
+// Monthly payout trend from Employee 500, drawn as inline SVG bars.
+function ovTrendChart(){
+  var byDate = {};
+  OV_HISTORY.forEach(function(r){ byDate[r.pay_date] = (byDate[r.pay_date]||0) + (parseFloat(r.total_payout)||0); });
+  var keys = Object.keys(byDate).sort().slice(-12);
+  if(!keys.length) return '<p style="padding:14px;color:var(--text-3);font-size:12px">No payroll history yet.</p>';
+  var max = Math.max.apply(null, keys.map(function(k){ return byDate[k]; }));
+  var MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var w = 1000, h = 220, pad = 34, bw = (w - pad*2) / keys.length;
+  var bars = keys.map(function(k, i){
+    var v = byDate[k];
+    var bh = max ? (h - 60) * (v / max) : 0;
+    var x = pad + i*bw + bw*0.18;
+    var y = h - 30 - bh;
+    var m = parseInt(k.slice(5,7));
+    var lbl = MN[m-1] + " '" + k.slice(2,4);
+    return '<rect x="' + x + '" y="' + y + '" width="' + (bw*0.64) + '" height="' + bh + '" rx="3" fill="#006CE5"><title>' + lbl + ': ' + "₱" + fmtMoney(v) + '</title></rect>'
+      + '<text x="' + (x + bw*0.32) + '" y="' + (h - 14) + '" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.55">' + lbl + '</text>'
+      + '<text x="' + (x + bw*0.32) + '" y="' + (y - 6) + '" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.75">' + Math.round(v/1000) + 'k</text>';
+  }).join('');
+  return '<div style="padding:8px 4px 4px"><svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;color:var(--text-2)">' + bars + '</svg></div>';
+}
+
+function renderOverview(){
+  var c = document.getElementById('overviewBody');
+  if(!c) return;
+  var st = ovPeriodStats(ovPeriod);
+  var gaps = ovTimesheetGaps(ovPeriod);
+  var loans = ovLoanOutstanding();
+  var liab = ovLeaveLiability();
+  var hol = ovNextHoliday();
+  var exits = ovUpcomingExits();
+  var rate = pay202EburyRate, arate = pay202AudRate;
+  var r = ovPeriodRange(ovPeriod);
+  var MNF = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var pp = ovPeriod.split('-').map(Number);
+  var pct = st.expected ? Math.round(st.paid / st.expected * 100) : 0;
+  var payTone = st.paid >= st.expected && st.expected ? 'ok' : (st.paid ? 'warn' : '');
+
+  var periodTiles = ''
+    + ovTile('Total Payout', "₱" + fmtMoney(st.payout), (rate ? '$' + fmtMoney(st.payout/rate) : '') + (arate ? '  A$' + fmtMoney(st.payout/arate) : ''), 'accent')
+    + ovTile('Payroll Marked Paid', st.paid + ' of ' + st.expected, '<div class="ov-bar"><div class="ov-bar-fill" style="width:' + pct + '%"></div></div>', payTone)
+    + ovTile('Timesheet Gaps', gaps.total ? gaps.total + ' days' : 'Complete', gaps.staff.length ? gaps.staff.slice(0,3).map(function(s){ return s.name.split(' ')[0] + ' ' + s.miss + 'd'; }).join(' \u00b7 ') : 'All weekdays recorded', gaps.total ? 'warn' : 'ok')
+    + ovTile('SSS to Remit', st.sss ? "₱" + fmtMoney(st.sss) : "—", 'Jan / Apr / Jul / Oct')
+    + ovTile('Maxicare to Remit', st.maxicare ? "₱" + fmtMoney(st.maxicare) : "—", 'Quarterly per employee')
+    + ovTile('13th Month Accrued', st.thirteenth ? "₱" + fmtMoney(st.thirteenth) : "—", 'Mar / Jun / Sep / Dec');
+
+  var nowTiles = ''
+    + ovTile('Loans Outstanding', (loans.php ? "₱" + fmtMoney(loans.php) : (loans.usd ? '$' + fmtMoney(loans.usd) : "—")), loans.count + ' active loan' + (loans.count!==1?'s':'') + (loans.php && loans.usd ? ' \u00b7 $' + fmtMoney(loans.usd) : ''))
+    + ovTile('Leave Liability', "₱" + fmtMoney(liab.php + (rate ? liab.usd * rate : 0)), 'Annual Leave owed if all staff exited today')
+    + ovTile('Next VIC Holiday', hol ? (hol.days === 0 ? 'Today' : hol.days + ' day' + (hol.days!==1?'s':'')) : "—", hol ? hol.name + ' \u00b7 ' + hol.date : 'None scheduled', hol && hol.days <= 7 ? 'warn' : '')
+    + ovTile('Upcoming Exits', exits.length ? String(exits.length) : 'None', exits.length ? exits.slice(0,2).map(function(e){ return e.name.split(' ')[0] + ' ' + e.exit_date; }).join(' \u00b7 ') : 'No scheduled departures', exits.length ? 'warn' : 'ok');
+
+  c.innerHTML = ''
+    + '<div class="card" style="margin-bottom:14px">'
+    +   '<div class="card-header"><span class="card-title">This Period</span>'
+    +   '<span class="rec-count">' + r.start + ' – ' + r.end + ' \u00b7 paid ' + r.payDate + '</span></div>'
+    +   '<div class="card-body" style="display:flex;gap:10px;align-items:flex-end;padding-bottom:6px">'
+    +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Pay Period</label>'
+    +       '<input type="month" class="search-box" id="ovPeriodInput" min="' + MIN_OPEN_PERIOD + '" value="' + ovPeriod + '" style="width:160px"></div>'
+    +   '</div>'
+    +   '<div class="ov-grid">' + periodTiles + '</div>'
+    + '</div>'
+    + '<div class="card" style="margin-bottom:14px">'
+    +   '<div class="card-header"><span class="card-title">Current Position</span>'
+    +   '<span class="rec-count">As of today \u00b7 not tied to the selected period</span></div>'
+    +   '<div class="ov-grid">' + nowTiles + '</div>'
+    + '</div>'
+    + '<div class="card">'
+    +   '<div class="card-header"><span class="card-title">Payroll Cost Trend</span>'
+    +   '<span class="rec-count">Total payout per pay date \u00b7 last 12</span></div>'
+    +   ovTrendChart()
+    + '</div>';
+
+  var pi = document.getElementById('ovPeriodInput');
+  if(pi) pi.addEventListener('change', function(e){
+    if(!e.target.value || e.target.value < MIN_OPEN_PERIOD){ e.target.value = ovPeriod; return; }
+    ovPeriod = e.target.value; renderOverview();
+  });
+  if(typeof attachMonthPicker === 'function') attachMonthPicker('ovPeriodInput');
+}
+
 function renderLeavePanel(){
   const container = document.getElementById('leaveBody');
   if(!container) return;
@@ -3543,6 +3769,7 @@ function render(){
 
 
 initMonthPickers();
+setTimeout(function(){ if(!ovLoaded) loadOverviewData(); }, 1200);
 watchDatePickers();
 setTimeout(syncMonthPickerLabels, 800);
 
