@@ -3348,8 +3348,8 @@ function ovSeries(){
 function ovSpark(vals, labels, colour, fmtFn, shades){
   if(!vals.length) return '';
   var max = Math.max.apply(null, vals) || 1;
-  var w = 320, h = 78, padB = 16, padT = 6, n = vals.length;
-  var slot = w / n, bw = Math.min(slot*0.52, 18), dx = Math.min(slot*0.18, 6), dy = dx * 0.66;
+  var w = 320, h = 78, padB = 16, padT = 6, padR = 22, n = vals.length;
+  var slot = (w - padR) / n, bw = Math.min(slot*0.52, 18), dx = Math.min(slot*0.18, 6), dy = dx * 0.66;
   var plotH = h - padB - padT;
   var out = vals.map(function(v, i){
     var bh = Math.max(plotH * (v / max), 2);
