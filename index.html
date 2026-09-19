@@ -4072,42 +4072,61 @@ function renderPrevRun(){
       + '<div style="padding:22px;text-align:center;color:var(--text-3);font-size:12px">No finalised payroll for ' + lbl + '.</div></div>';
     return;
   }
-  var money = function(v){ return v ? fmtMoney(v) : '\u2014'; };
-  var total = 0;
+  var m = function(val){ var n = parseFloat(val); return (!n || isNaN(n)) ? '\u2014' : fmtMoney(n); };
+  var cols = ['Name','Monthly Pay','Home Office','Double Pay','Others (USD)','Note (USD)','Overtime','Leave Payout','Bank Fees','Total USD','Ebury USD/PHP','Maxicare','SSS','13th','Loan','Other (PHP)','Note','Total PHP','Total Payout','AUD','USD','Paid'];
+  var head = '<tr>' + cols.map(function(c){ return '<th>' + c + '</th>'; }).join('') + '</tr>';
+
+  var tot = { usd:0, ebury:0, php:0, payout:0 };
   var rows = PREV_RUN.map(function(r){
+    var rate = parseFloat(r.ebury_rate) || 0;
+    var usd = (parseFloat(r.standard_pay)||0) + (parseFloat(r.overtime_pay)||0) + (parseFloat(r.double_pay)||0)
+            + (parseFloat(r.vacation_pay)||0) + (parseFloat(r.home_office)||0) + (parseFloat(r.others_usd)||0) + (parseFloat(r.bank_fees)||0);
+    var eburyPhp = rate ? usd * rate : 0;
+    var php = (parseFloat(r.maxicare_php)||0) + (parseFloat(r.sss_php)||0) + (parseFloat(r.thirteenth_php)||0)
+            + (parseFloat(r.loan_php)||0) + (parseFloat(r.others_php)||0);
     var payout = parseFloat(r.total_payout) || 0;
-    total += payout;
-    // compare against the same person in the period on screen
-    var emp = EMP201.find(function(e){ return e.name === r.employee_name; });
-    var cur = null;
-    if(emp){
-      var snap = PAY202_SNAPSHOTS.find(function(s){ return s.employee_id === emp.id && s.is_paid; });
-      if(snap && snap.data) cur = parseFloat(snap.data.totalPayout) || 0;
-    }
-    var delta = '';
-    if(cur != null && payout){
-      var pc = (cur - payout) / payout * 100;
-      delta = '<span class="prev-delta ' + (pc >= 0 ? 'up' : 'down') + '">' + (pc>=0?'\u25b2':'\u25bc') + ' ' + Math.abs(pc).toFixed(1) + '%</span>';
-    }
+    tot.usd += usd; tot.ebury += eburyPhp; tot.php += php; tot.payout += payout;
+    var aud = (payout && pay202AudRate) ? fmtMoney(payout / pay202AudRate) : '\u2014';
+    var usdEq = (payout && rate) ? fmtMoney(payout / rate) : '\u2014';
     return '<tr>'
       + '<td>' + r.employee_name + '</td>'
-      + '<td class="num">' + money(r.standard_pay) + '</td>'
-      + '<td class="num">' + money(r.overtime_pay) + '</td>'
-      + '<td class="num">' + money(r.thirteenth_php) + '</td>'
-      + '<td class="num">' + (r.loan_php ? '<span style="color:#a35b00">' + fmtMoney(r.loan_php) + '</span>' : '\u2014') + '</td>'
-      + '<td class="num strong">' + "₱" + fmtMoney(payout) + '</td>'
-      + '<td class="num">' + delta + '</td>'
+      + '<td>' + m(r.standard_pay) + '</td>'
+      + '<td>' + m(r.home_office) + '</td>'
+      + '<td>' + m(r.double_pay) + '</td>'
+      + '<td>' + m(r.others_usd) + '</td>'
+      + '<td class="ptxt">' + (r.note_usd || '') + '</td>'
+      + '<td>' + m(r.overtime_pay) + '</td>'
+      + '<td>' + m(r.vacation_pay) + '</td>'
+      + '<td>' + m(r.bank_fees) + '</td>'
+      + '<td>' + m(usd) + '</td>'
+      + '<td>' + m(eburyPhp) + '</td>'
+      + '<td>' + m(r.maxicare_php) + '</td>'
+      + '<td>' + m(r.sss_php) + '</td>'
+      + '<td>' + m(r.thirteenth_php) + '</td>'
+      + '<td>' + (r.loan_php ? '<span style="color:#a35b00">' + fmtMoney(r.loan_php) + '</span>' : '\u2014') + '</td>'
+      + '<td>' + m(r.others_php) + '</td>'
+      + '<td class="ptxt">' + (r.note || '') + '</td>'
+      + '<td>' + m(php) + '</td>'
+      + '<td>' + m(payout) + '</td>'
+      + '<td>' + aud + '</td>'
+      + '<td>' + usdEq + '</td>'
+      + '<td class="ppaid">\u2713</td>'
       + '</tr>';
   }).join('');
 
+  var foot = '<tr class="pay202-total-row"><td>Period Total</td>'
+    + '<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>'
+    + '<td>' + m(tot.usd) + '</td><td>' + m(tot.ebury) + '</td>'
+    + '<td></td><td></td><td></td><td></td><td></td><td></td>'
+    + '<td>' + m(tot.php) + '</td><td>' + m(tot.payout) + '</td><td></td><td></td><td></td></tr>';
+
   host.innerHTML = '<div class="card">'
     + '<div class="card-header"><span class="card-title">Previous Pay Run</span>'
-    +   '<span class="rec-count">' + lbl + ' \u00b7 ' + PREV_RUN.length + ' paid \u00b7 ' + "₱" + fmtMoney(total) + '</span></div>'
-    + '<div class="tbl-scroll"><table class="prev-table">'
-    +   '<thead><tr><th>Name</th><th class="num">Standard</th><th class="num">Overtime</th><th class="num">13th</th><th class="num">Loan</th><th class="num">Total Payout</th><th class="num">vs now</th></tr></thead>'
-    +   '<tbody>' + rows + '</tbody></table></div>'
+    +   '<span class="rec-count">' + lbl + ' \u00b7 ' + PREV_RUN.length + ' paid \u00b7 ' + "₱" + fmtMoney(tot.payout) + '</span></div>'
+    + '<div class="tbl-scroll"><table class="pay202-table prev-run"><thead>' + head + '</thead><tbody>' + rows + foot + '</tbody></table></div>'
     + '</div>';
 }
+
 
 function renderPay202(){
   const container = document.getElementById('pay202Body');
