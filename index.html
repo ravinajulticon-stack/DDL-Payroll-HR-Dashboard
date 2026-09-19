@@ -538,6 +538,7 @@ body {
   background:transparent; border-color:transparent; color:var(--text-2); cursor:default; box-shadow:none;
 }
 .pay202-input:disabled:hover, .rec-table input:disabled:hover, .rec-table select:disabled:hover{ border-color:transparent; }
+.search-box:disabled{ background:var(--surface-3); color:var(--text-3); cursor:not-allowed; border-color:var(--border); }
 .pay202-input.pay202-note{ text-align:left; }
 .pay202-total-row td{ background:rgba(10,132,255,0.08) !important; font-weight:700; color:var(--teal) !important; border-top:1px solid var(--border-strong); }
 .pay202-total-row td:first-child{ background:rgba(10,132,255,0.10) !important; color:var(--teal) !important; font-style:italic; }
@@ -3621,6 +3622,20 @@ function renderPay202(){
   rateInput.value = pay202EburyRate != null ? Number(pay202EburyRate).toFixed(4) : '';
   const audInput = document.getElementById('pay202AudRateInput');
   if(audInput) audInput.value = pay202AudRate != null ? Number(pay202AudRate).toFixed(4) : '';
+  // Once every row in the period is paid, the rates are frozen into the snapshots \u2014 lock them.
+  const _periodPaid = PAY202_SNAPSHOTS.filter(function(s){ return s.is_paid; }).length;
+  const _periodRows = EMP201.filter(function(e){
+    const [pY,pM] = pay202SelectedPeriod.split('-').map(Number);
+    let sM = pM-1, sY = pY; if(sM<=0){ sM+=12; sY-=1; }
+    const ps = sY + '-' + String(sM).padStart(2,'0') + '-11';
+    return !(e.exit_date && e.exit_date < ps);
+  }).length;
+  const _locked = _periodRows > 0 && _periodPaid >= _periodRows;
+  [rateInput, audInput].forEach(function(el){
+    if(!el) return;
+    el.disabled = _locked;
+    el.title = _locked ? 'Period fully paid \u2014 rates are locked. Unlock a row to change them.' : '';
+  });
 
   const rangeLabel = document.getElementById('pay202RangeLabel');
   if(rangeLabel) rangeLabel.textContent = fmtPeriodLabel(pay202SelectedPeriod + '-01');
