@@ -2255,7 +2255,7 @@ function renderLeaveBalancesPanel(){
       const bal = leaveBalanceAsOf(emp.id, t.name, lbAsOf);
       const valHtml = bal === null
         ? `<span style="font-size:12px;color:var(--amber)">— Not set</span>`
-        : `<span class="lb-tile-val${idx===1?' lb-sub':''}">${bal===0?'0.00':fmtHrs(bal)}</span>`;
+        : `<span class="lb-tile-val${idx===1?' lb-sub':''}">${Number(bal).toFixed(2)}</span>`;
       return `<div class="lb-tile-section">
         ${valHtml}
         <div class="lb-tile-lbl">${t.short}</div>
