@@ -3035,8 +3035,8 @@ function ovLoanOutstanding(){
 }
 
 // What we'd owe if everyone left today: Annual Leave balance x hourly rate.
-function ovLeaveLiability(){
-  var today = new Date();
+function ovLeaveLiability(asOf){
+  var today = asOf ? new Date(asOf + 'T00:00:00') : new Date();
   var php = 0, usd = 0;
   EMP201.filter(function(e){ return e.status === 'Active'; }).forEach(function(e){
     var bal = leaveBalanceAsOf(e.id, 'Annual Leave', today);
@@ -3316,12 +3316,12 @@ function renderOverview(){
   var st = ovPeriodStats(ovPeriod);
   var gaps = ovTimesheetGaps(ovPeriod);
   var loans = ovLoanOutstanding();
-  var liab = ovLeaveLiability();
   var hol = ovNextHoliday();
   var exits = ovUpcomingExits();
   var rate = pay202EburyRate, arate = pay202AudRate;
   var bestRate = ovBestRate(ovPeriod);
   var r = ovPeriodRange(ovPeriod);
+  var liab = ovLeaveLiability(r.end);
   var MNF = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   var pp = ovPeriod.split('-').map(Number);
   var pct = st.expected ? Math.round(st.paid / st.expected * 100) : 0;
@@ -3334,12 +3334,12 @@ function renderOverview(){
     + ovTile('SSS to Remit', st.sss ? "₱" + fmtMoney(st.sss) : "—", 'Jan / Apr / Jul / Oct')
     + ovTile('Maxicare to Remit', st.maxicare ? "₱" + fmtMoney(st.maxicare) : "—", 'Quarterly per employee')
     + ovTile('13th Month Accrued', st.thirteenth ? "₱" + fmtMoney(st.thirteenth) : "—", 'Mar / Jun / Sep / Dec');
+    + ovTile('Leave Liability', "₱" + fmtMoney(liab.php + (bestRate.rate ? liab.usd * bestRate.rate : 0)), 'Annual Leave owed as at ' + r.end + (bestRate.estimated ? ' \u00b7 est. rate ' + bestRate.rate.toFixed(4) : ''))
 
   var run = ovRunRate();
   var nowTiles = ''
     + ovTile('Monthly Run Rate', "₱" + fmtMoney(run.php), run.headcount + ' active \u00b7 ' + run.usdCount + ' USD, ' + run.phpCount + ' PHP', 'accent')
     + ovTile('Loans Outstanding', (loans.php ? "₱" + fmtMoney(loans.php) : (loans.usd ? '$' + fmtMoney(loans.usd) : "—")), loans.count + ' active loan' + (loans.count!==1?'s':'') + (loans.php && loans.usd ? ' \u00b7 $' + fmtMoney(loans.usd) : ''))
-    + ovTile('Leave Liability', "₱" + fmtMoney(liab.php + (bestRate.rate ? liab.usd * bestRate.rate : 0)), 'Annual Leave owed if all staff exited today' + (bestRate.estimated ? ' \u00b7 est. rate ' + bestRate.rate.toFixed(4) : ''))
     + ovTile('Next VIC Holiday', hol ? (hol.days === 0 ? 'Today' : hol.days + ' day' + (hol.days!==1?'s':'')) : "—", hol ? hol.name + ' \u00b7 ' + hol.date : 'None scheduled', hol && hol.days <= 7 ? 'warn' : '')
     + ovTile('Upcoming Exits', exits.length ? String(exits.length) : 'None', exits.length ? exits.slice(0,2).map(function(e){ return e.name.split(' ')[0] + ' ' + e.exit_date; }).join(' \u00b7 ') : 'No scheduled departures', exits.length ? 'warn' : 'ok');
 
