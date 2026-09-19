@@ -2984,6 +2984,11 @@ function ovTimesheetGaps(periodStr){
   var emps = ovActiveFor(periodStr);
   var have = {};
   TIMESHEET_ENTRIES.forEach(function(t){ have[t.employee_id + '|' + t.work_date] = true; });
+  // A day is not a gap if leave was taken or it was a public holiday.
+  var onLeave = {};
+  LEAVE_ENTRIES.forEach(function(l){ onLeave[l.employee_id + '|' + l.leave_date] = true; });
+  var holiday = {};
+  VIC_HOLIDAYS.forEach(function(h){ holiday[h.date] = true; });
   var gaps = 0, perEmp = [];
   emps.forEach(function(e){
     var miss = 0;
@@ -2993,7 +2998,8 @@ function ovTimesheetGaps(periodStr){
       var ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
       var afterExit = e.exit_date && ds > e.exit_date;
       var beforeStart = e.start_date && ds < e.start_date;
-      if(dow !== 0 && dow !== 6 && !afterExit && !beforeStart && !have[e.id + '|' + ds]) miss++;
+      var excused = onLeave[e.id + '|' + ds] || holiday[ds];
+      if(dow !== 0 && dow !== 6 && !afterExit && !beforeStart && !excused && !have[e.id + '|' + ds]) miss++;
       d.setDate(d.getDate() + 1);
     }
     if(miss) perEmp.push({ name: e.name, miss: miss });
