@@ -589,6 +589,18 @@ body {
 .ov-sub{ font-size:10.5px; color:rgba(255,255,255,0.78); margin-top:6px; line-height:1.5; }
 .ov-bar{ height:5px; background:rgba(255,255,255,0.28); border-radius:3px; overflow:hidden; margin-top:8px; }
 .ov-bar-fill{ height:100%; background:#fff; border-radius:3px; }
+.ov-charts{ display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:8px; align-items:start; }
+@media (max-width:900px){ .ov-charts{ grid-template-columns:1fr; } }
+.ov-chart-side{ border-left:1px solid var(--border); padding:6px 8px 12px 16px; }
+.ov-mix{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+.ov-mix-svg{ width:100%; max-width:172px; height:auto; color:var(--text); }
+.ov-mix-list{ width:100%; display:flex; flex-direction:column; gap:5px; }
+.ov-mix-row{ display:flex; align-items:center; gap:7px; font-size:11px; }
+.ov-mix-dot{ width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+.ov-mix-name{ flex:1; color:var(--text-2); }
+.ov-mix-pct{ color:var(--text-3); font-variant-numeric:tabular-nums; }
+.ov-mix-val{ font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; min-width:76px; text-align:right; }
+.ov-mix-empty{ padding:24px 10px; text-align:center; font-size:11.5px; color:var(--text-3); }
 .ov-trend-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:14px 18px 2px; }
 .ov-trend-val{ font-size:30px; font-weight:700; color:var(--text); letter-spacing:-0.8px; line-height:1.1; }
 .ov-trend-meta{ display:flex; align-items:center; gap:9px; margin-top:5px; font-size:12px; color:var(--text-3); }
@@ -3302,6 +3314,50 @@ function ovTrendOpen(i){
   renderOverview();
 }
 
+
+// Composition of the selected period, as a donut.
+function ovMixChart(){
+  var st = ovPeriodStats(ovPeriod);
+  var eburyPhp = Math.max(0, st.payout - st.maxicare - st.sss - st.thirteenth - st.loan);
+  var parts = [
+    { n:'Base pay',    v: eburyPhp,       c:'#007aff' },
+    { n:'13th month',  v: st.thirteenth,  c:'#af52de' },
+    { n:'Maxicare',    v: st.maxicare,    c:'#34c759' },
+    { n:'SSS',         v: st.sss,         c:'#ff9500' }
+  ].filter(function(p){ return p.v > 0; });
+  var tot = parts.reduce(function(a,p){ return a + p.v; }, 0);
+  if(!tot) return '<div class="ov-mix-empty">Nothing paid in this period yet.</div>';
+
+  var cx = 105, cy = 105, rOut = 78, rIn = 50, a = -Math.PI/2, segs = '';
+  parts.forEach(function(p){
+    var frac = p.v / tot, a2 = a + frac * Math.PI * 2;
+    var large = frac > 0.5 ? 1 : 0;
+    var x1 = cx + rOut*Math.cos(a),  y1 = cy + rOut*Math.sin(a);
+    var x2 = cx + rOut*Math.cos(a2), y2 = cy + rOut*Math.sin(a2);
+    var x3 = cx + rIn*Math.cos(a2),  y3 = cy + rIn*Math.sin(a2);
+    var x4 = cx + rIn*Math.cos(a),   y4 = cy + rIn*Math.sin(a);
+    segs += '<path d="M' + x1 + ',' + y1 + ' A' + rOut + ',' + rOut + ' 0 ' + large + ',1 ' + x2 + ',' + y2
+      + ' L' + x3 + ',' + y3 + ' A' + rIn + ',' + rIn + ' 0 ' + large + ',0 ' + x4 + ',' + y4 + ' Z"'
+      + ' fill="' + p.c + '" stroke="var(--surface-1)" stroke-width="2">'
+      + '<title>' + p.n + ': ' + "₱" + fmtMoney(p.v) + ' (' + (frac*100).toFixed(1) + '%)</title></path>';
+    a = a2;
+  });
+
+  var rows = parts.map(function(p){
+    return '<div class="ov-mix-row"><span class="ov-mix-dot" style="background:' + p.c + '"></span>'
+      + '<span class="ov-mix-name">' + p.n + '</span>'
+      + '<span class="ov-mix-pct">' + (p.v/tot*100).toFixed(0) + '%</span>'
+      + '<span class="ov-mix-val">' + "₱" + fmtMoney(p.v) + '</span></div>';
+  }).join('');
+
+  return '<div class="ov-mix">'
+    + '<svg viewBox="0 0 210 210" class="ov-mix-svg">' + segs
+    +   '<text x="105" y="100" text-anchor="middle" font-size="11" fill="currentColor" opacity="0.45">Total</text>'
+    +   '<text x="105" y="120" text-anchor="middle" font-size="15" font-weight="700" fill="currentColor">' + Math.round(tot/1000) + 'k</text>'
+    + '</svg>'
+    + '<div class="ov-mix-list">' + rows + '</div>'
+    + '</div>';
+}
 function ovTrendChart(){
   var by = {}, heads = {};
   OV_HISTORY.forEach(function(r){
@@ -3341,10 +3397,10 @@ function ovTrendChart(){
   var max = Math.max.apply(null, totals) || 1;
   max = max * 1.12;
 
-  var w = 1000, h = 300, padL = 60, padR = 30, padT = 20, padB = 54;
+  var w = 620, h = 250, padL = 46, padR = 22, padT = 18, padB = 44;
   var plotW = w - padL - padR, plotH = h - padT - padB;
   var n = OV_TREND.length, slot = plotW / n;
-  var bw = Math.min(slot * 0.5, 54), dx = Math.min(slot * 0.16, 14), dy = dx * 0.66;
+  var bw = Math.min(slot * 0.46, 30), dx = Math.min(slot * 0.15, 9), dy = dx * 0.66;
   var yFor = function(v){ return padT + plotH - plotH * (v / max); };
 
   var grid = '';
@@ -3352,7 +3408,7 @@ function ovTrendChart(){
     var gv = max * g / 4, gy = yFor(gv);
     grid += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (w-padR) + '" y2="' + gy + '" stroke="currentColor" stroke-opacity="0.10"/>'
       + '<line x1="' + (w-padR) + '" y1="' + gy + '" x2="' + (w-padR+dx) + '" y2="' + (gy-dy) + '" stroke="currentColor" stroke-opacity="0.06"/>'
-      + '<text x="' + (padL-12) + '" y="' + (gy+4) + '" text-anchor="end" font-size="11" fill="currentColor" opacity="0.42">' + Math.round(gv/1000) + 'k</text>';
+      + '<text x="' + (padL-12) + '" y="' + (gy+4) + '" text-anchor="end" font-size="9.5" fill="currentColor" opacity="0.42">' + Math.round(gv/1000) + 'k</text>';
   }
 
   var bars = OV_TREND.map(function(d, i){
@@ -3375,9 +3431,9 @@ function ovTrendChart(){
     return '<g class="ov-iso" onmouseover="ovTrendHover(' + i + ')" onclick="ovTrendOpen(' + i + ')" style="cursor:pointer">'
       + '<rect x="' + (x-slot*0.24) + '" y="' + padT + '" width="' + (slot*0.98) + '" height="' + plotH + '" fill="transparent"/>'
       + faces
-      + '<text x="' + (x + bw/2 + dx/2) + '" y="' + (topY - dy - 9) + '" text-anchor="middle" font-size="11.5" font-weight="700" fill="currentColor" opacity="0.72">' + Math.round(tot/1000) + 'k</text>'
-      + '<text x="' + (x + bw/2) + '" y="' + (h-26) + '" text-anchor="middle" font-size="11.5" fill="currentColor" opacity="0.5">' + d.mon + '</text>'
-      + '<text x="' + (x + bw/2) + '" y="' + (h-13) + '" text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.32">' + d.yr + '</text>'
+      + '<text x="' + (x + bw/2 + dx/2) + '" y="' + (topY - dy - 9) + '" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor" opacity="0.72">' + Math.round(tot/1000) + 'k</text>'
+      + '<text x="' + (x + bw/2) + '" y="' + (h-26) + '" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.5">' + d.mon + '</text>'
+      + '<text x="' + (x + bw/2) + '" y="' + (h-13) + '" text-anchor="middle" font-size="8.5" fill="currentColor" opacity="0.32">' + d.yr + '</text>'
       + '</g>';
   }).join('');
 
@@ -3468,7 +3524,10 @@ function renderOverview(){
     + '<div class="card">'
     +   '<div class="card-header"><span class="card-title">Payroll Cost Trend</span>'
     +   '<span class="rec-count">Total payout per pay date \u00b7 last 12</span></div>'
-    +   ovTrendChart()
+    +   '<div class="ov-charts">'
+    +     '<div class="ov-chart-main">' + ovTrendChart() + '</div>'
+    +     '<div class="ov-chart-side">' + ovMixChart() + '</div>'
+    +   '</div>'
     + '</div>';
 
   var pi = document.getElementById('ovPeriodInput');
