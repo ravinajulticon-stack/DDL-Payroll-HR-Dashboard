@@ -4044,6 +4044,7 @@ function pay202NoteCell(employeeId, field){
 /* PREVIOUS PAY RUN SNAPSHOT (Employee 202) */
 let PREV_RUN = [];
 let prevRunFor = null;
+let PREV_AUD_RATE = null;
 
 function prevPeriodOf(periodStr){
   var p = periodStr.split('-').map(Number);
@@ -4058,6 +4059,9 @@ async function loadPrevRun(){
   if(prevRunFor === payDate){ renderPrevRun(); return; }
   const { data, error } = await sb.from('employee_500').select('*').eq('pay_date', payDate).order('employee_name');
   PREV_RUN = error ? [] : (data || []);
+  // that period's own AUD rate, which employee_500 doesn't store
+  const rr = await sb.from('pay202_period_rates').select('aud_rate').eq('period_month', prev + '-01').maybeSingle();
+  PREV_AUD_RATE = (rr && rr.data && rr.data.aud_rate != null) ? parseFloat(rr.data.aud_rate) : null;
   prevRunFor = payDate;
   renderPrevRun();
 }
@@ -4088,7 +4092,7 @@ function renderPrevRun(){
             + (parseFloat(r.loan_php)||0) + (parseFloat(r.others_php)||0);
     var payout = parseFloat(r.total_payout) || 0;
     tot.usd += usd; tot.ebury += eburyPhp; tot.php += php; tot.payout += payout;
-    var aud = (payout && pay202AudRate) ? fmtMoney(payout / pay202AudRate) : '\u2014';
+    var aud = (payout && PREV_AUD_RATE) ? fmtMoney(payout / PREV_AUD_RATE) : '\u2014';
     var usdEq = (payout && rate) ? fmtMoney(payout / rate) : '\u2014';
     return '<tr>'
       + '<td>' + r.employee_name + '</td>'
