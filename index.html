@@ -493,6 +493,10 @@ body {
 .history-table{ table-layout:fixed; width:max-content; }
 .history-table th, .history-table td{ box-sizing:border-box; overflow:hidden; text-overflow:ellipsis; }
 .history-table th:nth-child(1), .history-table td:nth-child(1){ width:90px; }
+.history-table tr.hist-row-latest td{ background:rgba(52,199,89,0.14); color:var(--text); font-weight:600; }
+.history-table tr.hist-row-latest td:first-child{ box-shadow:inset 4px 0 0 var(--green); }
+.history-table tr.hist-row-latest{ outline:1.5px solid rgba(52,199,89,0.55); outline-offset:-1px; }
+.history-table tr.hist-row-latest:hover td{ background:rgba(52,199,89,0.22); }
 .history-table th:nth-child(2), .history-table td:nth-child(2){ width:60px; }
 .history-table th:nth-child(3), .history-table td:nth-child(3){ width:110px; }
 .history-table th:nth-child(4), .history-table td:nth-child(4){ width:120px; }
@@ -1413,6 +1417,7 @@ document.getElementById('historySearchBox').addEventListener('input', (e) => {
 async function loadHistory(){
   document.getElementById('historyBody').innerHTML = `<div style="text-align:center;color:var(--text-3);padding:24px">Loading historical records…</div>`;
   const { data, error } = await sb.from('employee_500').select('*').order('pay_date', { ascending: true });
+  HISTORY_LATEST_DATE = (data && data.length) ? data.map(function(x){ return x.pay_date; }).sort().slice(-1)[0] : null;
   if(error){ alert('Could not load history: ' + error.message); return; }
   HISTORY500 = data;
   populateHistoryFilterOptions();
@@ -1453,8 +1458,10 @@ function fmtDate(d){
   return dt.toLocaleDateString('en-US', { month:'2-digit', day:'2-digit', year:'numeric' });
 }
 
+let HISTORY_LATEST_DATE = null;
+
 const HISTORY_ROW_TEMPLATE = (r) => `
-    <tr>
+    <tr class="${r.pay_date === HISTORY_LATEST_DATE ? 'hist-row-latest' : ''}">
       <td>${fmtDate(r.pay_date)}</td>
       <td style="text-align:center">${r.period ?? ''}</td>
       <td style="text-align:center">${r.standard_hours ?? 0}</td>
