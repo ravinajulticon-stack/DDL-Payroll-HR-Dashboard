@@ -714,6 +714,7 @@ body {
 .ps-empbox{ flex:1; min-width:230px; }
 .ps-lbl{ background:#006CE5; color:#fff; font-size:9px; font-weight:700; letter-spacing:0.6px; padding:4px 8px; text-transform:uppercase; }
 .ps-name{ font-size:16px; font-weight:700; background:#E8EAF6; padding:5px 8px; }
+.ps-loc{ font-size:10.5px; color:#6e6e73; margin-top:2px; }
 .ps-sub{ font-size:11px; color:#333; padding:1px 8px; }
 .ps-grid{ flex:1; min-width:320px; display:grid; grid-template-columns:repeat(3,1fr); gap:6px; align-content:start; }
 .ps-val{ font-size:11px; font-weight:600; text-align:center; border:1px solid #C5CAE9; padding:4px 6px; }
@@ -2978,6 +2979,7 @@ function buildPayslip(r){
     +   '<div class="ps-empbox">'
     +     '<div class="ps-lbl">Employee Information</div>'
     +     '<div class="ps-name">' + r.employee_name + '</div>'
+    +     (emp && emp.city ? '<div class="ps-loc">' + emp.city + (emp.province ? ', ' + emp.province : '') + '</div>' : '')
     +     '<div class="ps-sub">' + (emp.role || '') + '</div>'
     +     '<div class="ps-sub">' + (emp.department || '') + '</div>'
     +     '<div class="ps-sub">' + (emp.employee_id || '') + '</div>'
