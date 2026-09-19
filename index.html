@@ -575,6 +575,23 @@ body {
 .ov-sub{ font-size:10.5px; color:var(--text-3); margin-top:5px; line-height:1.5; }
 .ov-bar{ height:5px; background:var(--surface-3); border-radius:3px; overflow:hidden; margin-top:7px; }
 .ov-bar-fill{ height:100%; background:var(--blue); border-radius:3px; }
+.ov-issues{ padding:6px 14px 14px; display:flex; flex-direction:column; gap:1px; }
+.ov-issue{ display:flex; align-items:center; gap:10px; padding:9px 12px; background:var(--surface-2); border-left:3px solid var(--border-strong); border-radius:4px; }
+.ov-issue.high{ border-left-color:#ff453a; }
+.ov-issue.med{ border-left-color:var(--amber); }
+.ov-issue.low{ border-left-color:var(--text-3); }
+.ov-dot{ width:6px; height:6px; border-radius:50%; background:currentColor; opacity:0.5; flex-shrink:0; }
+.ov-issue.high .ov-dot{ background:#ff453a; opacity:1; }
+.ov-issue.med .ov-dot{ background:var(--amber); opacity:1; }
+.ov-issue-txt{ font-size:12px; color:var(--text); flex:1; }
+.ov-issue-hint{ font-size:10.5px; color:var(--text-3); text-align:right; }
+.ov-clear{ padding:16px; text-align:center; font-size:12px; color:var(--green); }
+.ov-cmp{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:0 16px 14px; }
+.ov-cmp-arrow{ font-size:13px; font-weight:700; }
+.ov-cmp.up .ov-cmp-arrow{ color:var(--amber); }
+.ov-cmp.down .ov-cmp-arrow{ color:var(--green); }
+.ov-cmp-txt{ font-size:12px; color:var(--text-2); }
+.ov-cmp-why{ font-size:10.5px; color:var(--text-3); }
 .ps-sheet{ background:#fff; color:#1a1a1a; border-radius:10px; padding:30px 34px; margin:0 auto 18px; box-shadow:0 2px 16px rgba(0,0,0,0.4); max-width:860px; }
 .ps-top{ display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #006CE5; padding-bottom:12px; margin-bottom:16px; }
 .ps-co{ font-size:24px; font-weight:800; color:#0A0031; letter-spacing:-0.5px; }
@@ -2853,6 +2870,8 @@ async function loadOverviewData(){
   await loadLoanPaidPeriods();
   var a = await sb.from('employee_500').select('pay_date,total_payout,maxicare_php,sss_php,thirteenth_php,loan_php');
   OV_HISTORY = (a.error ? [] : (a.data || []));
+  var c = await sb.from('pay202_period_rates').select('period_month,ebury_rate,aud_rate');
+  OV_RATES = (c.error ? [] : (c.data || []));
   var b = await sb.from('pay202_snapshots').select('employee_id,period_month,is_paid').eq('is_paid', true);
   OV_PAID = (b.error ? [] : (b.data || []));
   ovLoaded = true;
@@ -2961,6 +2980,147 @@ function ovUpcomingExits(){
     .sort(function(a,b){ return a.exit_date.localeCompare(b.exit_date); });
 }
 
+
+let OV_RATES = [];
+
+function ovShiftPeriod(periodStr, n){
+  var p = periodStr.split('-').map(Number);
+  var m = p[1] - 1 + n;
+  var y = p[0] + Math.floor(m/12);
+  return y + '-' + String((m%12+12)%12 + 1).padStart(2,'0');
+}
+
+function ovRateFor(periodStr){
+  return OV_RATES.find(function(r){ return String(r.period_month).slice(0,7) === periodStr; }) || null;
+}
+
+// ---- 1. Needs Attention ----
+function ovIssues(periodStr){
+  var out = [];
+  var st = ovPeriodStats(periodStr);
+  var gaps = ovTimesheetGaps(periodStr);
+  var rt = ovRateFor(periodStr);
+  var r = ovPeriodRange(periodStr);
+
+  if(!rt || rt.ebury_rate == null) out.push({ sev:'high', text:'Ebury USD/PHP rate not set for this period', hint:'Employee 202' });
+  if(!rt || rt.aud_rate == null) out.push({ sev:'med', text:'AUD rate not set for this period', hint:'Employee 202' });
+
+  var unpaid = st.expected - st.paid;
+  if(unpaid > 0) out.push({ sev: st.paid ? 'med' : 'high', text: unpaid + ' employee' + (unpaid!==1?'s':'') + ' not yet marked paid', hint:'Employee 202' });
+
+  if(gaps.total > 0) out.push({ sev:'med', text: gaps.total + ' weekday' + (gaps.total!==1?'s':'') + ' missing from timesheets', hint: gaps.staff.slice(0,3).map(function(s){ return s.name.split(' ')[0]; }).join(', ') });
+
+  var badSetup = EMP201.filter(function(e){ return e.status==='Active' && (!e.basic_pay_rate || !e.currency); });
+  if(badSetup.length) out.push({ sev:'high', text: badSetup.length + ' active employee' + (badSetup.length!==1?'s':'') + ' missing pay rate or currency', hint: badSetup.map(function(e){return e.name.split(' ')[0];}).join(', ') });
+
+  var nextP = ovShiftPeriod(periodStr, 1);
+  SALARY_LOANS.forEach(function(l){
+    var n = parseInt(l.installments)||0;
+    var idx = loanInstallmentIndex(l, nextP);
+    if(idx === n){
+      var e = EMP201.find(function(x){ return x.id === l.employee_id; });
+      out.push({ sev:'low', text:(e?e.name.split(' ')[0]:'A') + "'s loan finishes next period", hint:(l.loan_name||'Loan') + ' \u00b7 final instalment' });
+    }
+  });
+
+  var holsInPeriod = VIC_HOLIDAYS.filter(function(h){ return h.date >= r.start && h.date <= r.end; })
+    .filter(function(h){ var d = new Date(h.date + 'T00:00:00').getDay(); return d !== 0 && d !== 6; });
+  if(holsInPeriod.length) out.push({ sev:'low', text: holsInPeriod.length + ' public holiday' + (holsInPeriod.length!==1?'s':'') + ' fell on a weekday', hint:'Check Double Pay \u00b7 ' + holsInPeriod.map(function(h){return h.name;}).slice(0,2).join(', ') });
+
+  var order = { high:0, med:1, low:2 };
+  out.sort(function(a,b){ return order[a.sev] - order[b.sev]; });
+  return out;
+}
+
+// ---- 2. Period comparison ----
+function ovComparison(periodStr){
+  var cur = ovPeriodStats(periodStr);
+  var prevP = ovShiftPeriod(periodStr, -1);
+  var prev = ovPeriodStats(prevP);
+  if(!prev.rows || !cur.rows) return null;
+  var diff = cur.payout - prev.payout;
+  var pctv = prev.payout ? (diff / prev.payout * 100) : 0;
+  var reasons = [];
+  if(Math.abs(cur.thirteenth - prev.thirteenth) > 1) reasons.push((cur.thirteenth > prev.thirteenth ? '13th month due' : '13th month not due this period'));
+  if(Math.abs(cur.maxicare - prev.maxicare) > 1) reasons.push(cur.maxicare > prev.maxicare ? 'Maxicare billed' : 'Maxicare not billed');
+  if(Math.abs(cur.sss - prev.sss) > 1) reasons.push(cur.sss > prev.sss ? 'SSS billed' : 'SSS not billed');
+  if(Math.abs(cur.loan - prev.loan) > 1) reasons.push('loan deductions changed');
+  if(cur.expected !== prev.expected) reasons.push('headcount ' + (cur.expected > prev.expected ? 'up' : 'down'));
+  var MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return { prevLabel: MN[parseInt(prevP.slice(5,7))-1], prevPayout: prev.payout, diff: diff, pct: pctv, reasons: reasons };
+}
+
+// ---- 3. Next period forecast ----
+function ovForecast(periodStr){
+  var nextP = ovShiftPeriod(periodStr, 1);
+  var nm = parseInt(nextP.slice(5,7));
+  var rate = pay202EburyRate || 0;
+  var emps = ovActiveFor(nextP).filter(function(e){ return !(e.exit_date && e.exit_date < ovPeriodRange(nextP).start); });
+
+  var basePhp = 0;
+  emps.forEach(function(e){
+    var b = parseFloat(e.basic_pay_rate) || 0;
+    basePhp += (e.currency === 'USD') ? (rate ? b * rate : 0) : b;
+  });
+
+  var loanPhp = 0;
+  emps.forEach(function(e){
+    var d = loanDeductionFor(e.id, nextP);
+    loanPhp += (d.php || 0) + ((rate && d.usd) ? d.usd * rate : 0);
+  });
+
+  var sssDue = [1,4,7,10].indexOf(nm) > -1;
+  var thDue = [3,6,9,12].indexOf(nm) > -1;
+  var maxiCount = emps.filter(function(e){
+    var q = parseInt(e.maxicare_quarter) || 0;
+    if(!q) return false;
+    return (nm % 3) === (q % 3);
+  }).length;
+
+  var MNF = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return { period: nextP, label: MNF[nm-1] + ' ' + nextP.slice(0,4), headcount: emps.length, basePhp: basePhp, loanPhp: loanPhp, sssDue: sssDue, thDue: thDue, maxiCount: maxiCount };
+}
+
+function ovIssuesPanel(periodStr){
+  var list = ovIssues(periodStr);
+  if(!list.length){
+    return '<div class="ov-clear">Nothing needs attention for this period.</div>';
+  }
+  return '<div class="ov-issues">' + list.map(function(x){
+    return '<div class="ov-issue ' + x.sev + '">'
+      + '<span class="ov-dot"></span>'
+      + '<span class="ov-issue-txt">' + x.text + '</span>'
+      + (x.hint ? '<span class="ov-issue-hint">' + x.hint + '</span>' : '')
+      + '</div>';
+  }).join('') + '</div>';
+}
+
+function ovComparePanel(periodStr){
+  var c = ovComparison(periodStr);
+  if(!c || !c.prevPayout) return '';
+  var up = c.diff >= 0;
+  var arrow = up ? "▲" : "▼";
+  var cls = up ? 'up' : 'down';
+  return '<div class="ov-cmp ' + cls + '">'
+    + '<span class="ov-cmp-arrow">' + arrow + ' ' + Math.abs(c.pct).toFixed(1) + '%</span>'
+    + '<span class="ov-cmp-txt">' + (up ? '+' : '\u2212') + "₱" + fmtMoney(Math.abs(c.diff)) + ' vs ' + c.prevLabel + '</span>'
+    + (c.reasons.length ? '<span class="ov-cmp-why">' + c.reasons.join(' \u00b7 ') + '</span>' : '')
+    + '</div>';
+}
+
+function ovForecastPanel(periodStr){
+  var f = ovForecast(periodStr);
+  var items = [];
+  items.push(ovTile('Base Payroll', f.basePhp ? "₱" + fmtMoney(f.basePhp) : '\u2014', f.headcount + ' employees at current rates'));
+  items.push(ovTile('Loan Deductions', f.loanPhp ? '\u2212' + "₱" + fmtMoney(Math.abs(f.loanPhp)) : '\u2014', f.loanPhp ? 'Scheduled instalments' : 'None scheduled'));
+  var due = [];
+  if(f.sssDue) due.push('SSS');
+  if(f.thDue) due.push('13th month');
+  if(f.maxiCount) due.push('Maxicare (' + f.maxiCount + ')');
+  items.push(ovTile('Also Due', due.length ? due.join(' \u00b7 ') : 'Nothing extra', due.length ? 'On top of base payroll' : 'Base payroll only', due.length ? 'warn' : 'ok'));
+  return '<div class="ov-grid">' + items.join('') + '</div>';
+}
+
 function ovTile(label, value, sub, tone){
   return '<div class="ov-tile' + (tone ? ' ' + tone : '') + '">'
     + '<div class="ov-lbl">' + label + '</div>'
@@ -3024,6 +3184,11 @@ function renderOverview(){
 
   c.innerHTML = ''
     + '<div class="card" style="margin-bottom:14px">'
+    +   '<div class="card-header"><span class="card-title">Needs Attention</span>'
+    +   '<span class="rec-count">' + MNF[pp[1]-1] + ' ' + pp[0] + '</span></div>'
+    +   ovIssuesPanel(ovPeriod)
+    + '</div>'
+    + '<div class="card" style="margin-bottom:14px">'
     +   '<div class="card-header"><span class="card-title">This Period</span>'
     +   '<span class="rec-count">' + r.start + ' – ' + r.end + ' \u00b7 paid ' + r.payDate + '</span></div>'
     +   '<div class="card-body" style="display:flex;gap:10px;align-items:flex-end;padding-bottom:6px">'
@@ -3031,11 +3196,17 @@ function renderOverview(){
     +       '<input type="month" class="search-box" id="ovPeriodInput" min="' + MIN_OPEN_PERIOD + '" value="' + ovPeriod + '" style="width:160px"></div>'
     +   '</div>'
     +   '<div class="ov-grid">' + periodTiles + '</div>'
+    +   ovComparePanel(ovPeriod)
     + '</div>'
     + '<div class="card" style="margin-bottom:14px">'
     +   '<div class="card-header"><span class="card-title">Current Position</span>'
     +   '<span class="rec-count">As of today \u00b7 not tied to the selected period</span></div>'
     +   '<div class="ov-grid">' + nowTiles + '</div>'
+    + '</div>'
+    + '<div class="card" style="margin-bottom:14px">'
+    +   '<div class="card-header"><span class="card-title">Next Period Forecast</span>'
+    +   '<span class="rec-count">' + ovForecast(ovPeriod).label + ' \u00b7 based on current setup</span></div>'
+    +   ovForecastPanel(ovPeriod)
     + '</div>'
     + '<div class="card">'
     +   '<div class="card-header"><span class="card-title">Payroll Cost Trend</span>'
