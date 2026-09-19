@@ -643,6 +643,7 @@ body {
 .loc-grp.luzon{ background:rgba(0,122,255,0.12); color:#0056b3; }
 .loc-grp.visayas{ background:rgba(52,199,89,0.14); color:#1e7a35; }
 .loc-grp.mindanao{ background:rgba(255,149,0,0.14); color:#a35b00; }
+.loc-pin-label span{ position:absolute; left:12px; top:-7px; white-space:nowrap; font-size:10px; font-weight:700; color:var(--text); background:rgba(255,255,255,0.88); padding:1px 5px; border-radius:4px; box-shadow:0 1px 2px rgba(0,0,0,0.15); pointer-events:none; }
 .loc-count span{ display:flex; align-items:center; justify-content:center; width:20px; height:20px; font-size:11px; font-weight:800; color:#fff; }
 .leaflet-container{ font-family:inherit; }
 .ov-panels{ display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:1px; background:var(--border); border-top:1px solid var(--border); }
@@ -3153,42 +3154,72 @@ function drawPhMap(staff){
   var el = document.getElementById('phMap');
   if(!el || typeof window.L === 'undefined') return;
   if(locMap){ locMap.remove(); locMap = null; }
-  locMap = window.L.map(el, { scrollWheelZoom:false, minZoom:5, maxZoom:13 }).setView([12.0, 122.0], 6);
+  locMap = window.L.map(el, { scrollWheelZoom:false, minZoom:5, maxZoom:13 });
   window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 13, attribution: '\u00a9 OpenStreetMap'
   }).addTo(locMap);
+  locMap.fitBounds([[4.4,116.5],[20.5,126.8]], { padding:[16,16] });
 
-  // group employees who share a city so pins don't stack invisibly
   var byCity = {};
   staff.forEach(function(e){
     if(!e.city || !PH_CITIES[e.city]) return;
     if(!byCity[e.city]) byCity[e.city] = [];
     byCity[e.city].push(e.name);
   });
+  var cities = Object.keys(byCity);
+  if(!cities.length) return;
 
-  var pts = [];
-  Object.keys(byCity).forEach(function(city){
-    var m = PH_CITIES[city];
-    var names = byCity[city];
-    var grp = islandGroupOf(m[0]);
-    var colour = grp === 'Luzon' ? '#007aff' : (grp === 'Visayas' ? '#34c759' : '#ff9500');
-    pts.push([m[0], m[1]]);
-    var marker = window.L.circleMarker([m[0], m[1]], {
-      radius: 9 + Math.min(names.length - 1, 4) * 3,
-      fillColor: colour, color:'#fff', weight:2, opacity:1, fillOpacity:0.85
-    }).addTo(locMap);
-    marker.bindTooltip('<b>' + city + '</b><br>' + names.join('<br>'), { direction:'top' });
-    if(names.length > 1){
-      window.L.marker([m[0], m[1]], {
-        icon: window.L.divIcon({ className:'loc-count', html:'<span>' + names.length + '</span>', iconSize:[20,20] })
-      }).addTo(locMap).bindTooltip('<b>' + city + '</b><br>' + names.join('<br>'), { direction:'top' });
-    }
-  });
+  var layer = window.L.layerGroup().addTo(locMap);
 
-  // always frame the whole country so islands stay separated
-  locMap.fitBounds([[4.2,116.0],[21.2,127.0]], { padding:[20,20] });
-  setTimeout(function(){ if(locMap) locMap.invalidateSize(); }, 250);
+  // Pins that would sit on top of each other get fanned out,
+  // with a hairline back to the true location.
+  function place(){
+    layer.clearLayers();
+    var MINGAP = 34;
+    var items = cities.map(function(c){
+      var m = PH_CITIES[c];
+      return { city:c, lat:m[0], lng:m[1], names:byCity[c], pt: locMap.latLngToLayerPoint([m[0], m[1]]) };
+    });
+    // group anything closer than MINGAP pixels
+    var groups = [];
+    items.forEach(function(it){
+      var g = groups.find(function(gr){
+        return gr.some(function(o){ return Math.hypot(o.pt.x-it.pt.x, o.pt.y-it.pt.y) < MINGAP; });
+      });
+      if(g) g.push(it); else groups.push([it]);
+    });
+
+    groups.forEach(function(g){
+      g.forEach(function(it, idx){
+        var target = it.pt;
+        if(g.length > 1){
+          var ang = (2 * Math.PI * idx / g.length) - Math.PI/2;
+          var rad = 26 + (g.length > 4 ? 10 : 0);
+          target = window.L.point(it.pt.x + Math.cos(ang)*rad, it.pt.y + Math.sin(ang)*rad);
+          var from = locMap.layerPointToLatLng(it.pt);
+          var to = locMap.layerPointToLatLng(target);
+          window.L.polyline([from, to], { color:'#8e8e93', weight:1, opacity:0.55 }).addTo(layer);
+          window.L.circleMarker(from, { radius:2, color:'#8e8e93', weight:1, fillOpacity:1 }).addTo(layer);
+        }
+        var ll = locMap.layerPointToLatLng(target);
+        var grp = islandGroupOf(it.lat);
+        var colour = grp === 'Luzon' ? '#007aff' : (grp === 'Visayas' ? '#34c759' : '#ff9500');
+        var mk = window.L.circleMarker(ll, {
+          radius: 9, fillColor: colour, color:'#fff', weight:2, opacity:1, fillOpacity:0.92
+        }).addTo(layer);
+        mk.bindTooltip('<b>' + it.city + '</b><br>' + it.names.join('<br>'), { direction:'top' });
+        window.L.marker(ll, {
+          icon: window.L.divIcon({ className:'loc-pin-label', html:'<span>' + it.city + (it.names.length>1 ? ' \u00b7 ' + it.names.length : '') + '</span>', iconSize:[0,0] })
+        }).addTo(layer).bindTooltip('<b>' + it.city + '</b><br>' + it.names.join('<br>'), { direction:'top' });
+      });
+    });
+  }
+
+  place();
+  locMap.on('zoomend', place);
+  setTimeout(function(){ if(locMap){ locMap.invalidateSize(); place(); } }, 250);
 }
+
 
 function renderPayslipPanel(){
   var c = document.getElementById('payslipBody');
