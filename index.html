@@ -897,14 +897,14 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
 <!-- TOOLBAR -->
 <div class="toolbar">
   <div class="seg-ctrl">
-    <button class="seg-btn active" onclick="switchView('overview',this)">Overview</button>
-    <button class="seg-btn" onclick="switchView('timesheet',this)">Timesheet</button>
-    <button class="seg-btn" onclick="switchView('detail',this)">Employee 201</button>
-    <button class="seg-btn" onclick="switchView('pay202',this)">Employee 202</button>
-    <button class="seg-btn" onclick="switchView('leave',this)">Employee 203</button>
-        <button class="seg-btn" onclick="switchView('loans',this)">Employee 204</button>
-    <button class="seg-btn" onclick="switchView('history',this)">Employee 500</button>
-        <button class="seg-btn" onclick="switchView('payslip',this)">Payslip</button>
+    <button class="seg-btn active" onclick="switchView('overview',this)"><span class="seg-txt">Overview</span><span class="seg-ic"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg></span></button>
+    <button class="seg-btn" onclick="switchView('timesheet',this)"><span class="seg-txt">Timesheet</span><span class="seg-ic"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5" stroke-linecap="round"/></svg></span></button>
+    <button class="seg-btn" onclick="switchView('detail',this)"><span class="seg-txt">Employee 201</span><span class="seg-ic"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="5.5" r="2.6"/><path d="M3 13.2c0-2.3 2.2-3.7 5-3.7s5 1.4 5 3.7" stroke-linecap="round"/></svg></span></button>
+    <button class="seg-btn" onclick="switchView('pay202',this)"><span class="seg-txt">Employee 202</span><span class="seg-ic"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3.5" width="12" height="9" rx="1.5"/><circle cx="8" cy="8" r="2"/></svg></span></button>
+    <button class="seg-btn" onclick="switchView('leave',this)"><span class="seg-txt">Employee 203</span><span class="seg-ic"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.2" y="3.2" width="11.6" height="10.6" rx="1.5"/><path d="M2.2 6.4h11.6M5.5 1.8v2.6M10.5 1.8v2.6" stroke-linecap="round"/></svg></span></button>
+        <button class="seg-btn" onclick="switchView('loans',this)"><span class="seg-txt">Employee 204</span><span class="seg-ic"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.8" y="4" width="12.4" height="8.6" rx="1.5"/><path d="M1.8 7h12.4" stroke-linecap="round"/></svg></span></button>
+    <button class="seg-btn" onclick="switchView('history',this)"><span class="seg-txt">Employee 500</span><span class="seg-ic"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 5.2h11v7.3a1.2 1.2 0 0 1-1.2 1.2H3.7a1.2 1.2 0 0 1-1.2-1.2z"/><rect x="1.6" y="2.3" width="12.8" height="2.9" rx="1"/><path d="M6.4 8.3h3.2" stroke-linecap="round"/></svg></span></button>
+        <button class="seg-btn" onclick="switchView('payslip',this)"><span class="seg-txt">Payslip</span><span class="seg-ic"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3.6 1.9h8.8v12.2l-1.8-1.1-1.8 1.1-1.6-1.1-1.8 1.1-1.8-1.1z"/><path d="M6 5.4h4M6 8.3h4" stroke-linecap="round"/></svg></span></button>
   </div>
   <div class="toolbar-sep"></div>
   <input type="text" class="search-box" id="searchBox" placeholder="Search employees…" style="display:none">
