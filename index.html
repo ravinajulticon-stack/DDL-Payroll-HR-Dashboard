@@ -3234,7 +3234,7 @@ function renderOverview(){
   var MNF = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   var pp = ovPeriod.split('-').map(Number);
   var pct = st.expected ? Math.round(st.paid / st.expected * 100) : 0;
-  var payTone = st.paid >= st.expected && st.expected ? 'ok' : (st.paid ? 'warn' : '');
+  var payTone = (st.expected && st.paid >= st.expected) ? 'ok' : (st.expected ? 'warn' : '');
 
   var periodTiles = ''
     + ovTile('Total Payout', "₱" + fmtMoney(st.payout), (rate ? '$' + fmtMoney(st.payout/rate) : '') + (arate ? '  A$' + fmtMoney(st.payout/arate) : ''), 'accent')
