@@ -3324,6 +3324,39 @@ function ovTrendOpen(i){
 
 // Composition of the selected period, as a donut.
 // Composition of the selected period as a slim 100% stacked bar.
+let OV_SERIES = [];
+
+function ovPanelsAt(i){
+  var S = OV_SERIES; if(!S.length) return;
+  if(i == null) i = S.length - 1;
+  var d = S[i], p = i > 0 ? S[i-1] : null;
+  var money = function(v){ return "₱" + fmtMoney(v); };
+  function tag(a, b, invert){
+    if(!b) return { txt:'', tone:'' };
+    var pc = (a-b)/b*100, up = pc >= 0;
+    return { txt: (up?'\u25b2 ':'\u25bc ') + Math.abs(pc).toFixed(1) + '%', tone: (invert ? !up : up) ? 'warn' : 'ok' };
+  }
+  var rows = [
+    { v: money(d.total),   t: tag(d.total,   p && p.total) },
+    { v: money(d.perHead), t: tag(d.perHead, p && p.perHead) },
+    { v: String(d.heads),  t: tag(d.heads,   p && p.heads, true) },
+    { v: money(d.ded),     t: tag(d.ded,     p && p.ded) }
+  ];
+  rows.forEach(function(r, k){
+    var ev = document.getElementById('ovPv' + k);
+    var ed = document.getElementById('ovPd' + k);
+    if(ev) ev.textContent = r.v;
+    if(ed){ ed.textContent = r.t.txt; ed.className = 'ov-panel-delta ' + r.t.tone; }
+  });
+}
+
+function ovPanelsOpen(i){
+  var d = OV_SERIES[i]; if(!d) return;
+  ovPeriod = d.period;
+  var el = document.getElementById('ovPeriodInput');
+  if(el) el.value = d.period;
+  renderOverview();
+}
 function ovSeries(){
   var by = {}, heads = {};
   OV_HISTORY.forEach(function(r){
@@ -3356,7 +3389,7 @@ function ovSpark(vals, labels, colour, fmtFn, shades){
     var x = i*slot + (slot-bw)/2, y = h - padB - bh;
     var last = i === n-1;
     var op = last ? 1 : 0.30;
-    return '<g opacity="' + op + '">'
+    return '<g class="ov-sbar" opacity="' + op + '" onmouseover="ovPanelsAt(' + i + ')" onmouseout="ovPanelsAt(null)" onclick="ovPanelsOpen(' + i + ')" style="cursor:pointer">'
       + '<polygon points="' + (x+bw) + ',' + y + ' ' + (x+bw+dx) + ',' + (y-dy) + ' ' + (x+bw+dx) + ',' + (y+bh-dy) + ' ' + (x+bw) + ',' + (y+bh) + '" fill="' + shades[1] + '"/>'
       + '<polygon points="' + x + ',' + y + ' ' + (x+dx) + ',' + (y-dy) + ' ' + (x+bw+dx) + ',' + (y-dy) + ' ' + (x+bw) + ',' + y + '" fill="' + shades[0] + '"/>'
       + '<rect x="' + x + '" y="' + y + '" width="' + bw + '" height="' + bh + '" fill="' + colour + '">'
@@ -3368,15 +3401,16 @@ function ovSpark(vals, labels, colour, fmtFn, shades){
 }
 
 
-function ovPanel(label, value, delta, chart, tone){
+function ovPanel(label, value, delta, chart, tone, idx){
   return '<div class="ov-panel"><div class="ov-panel-lbl">' + label + '</div>'
-    + '<div class="ov-panel-row"><span class="ov-panel-val">' + value + '</span>'
-    + (delta ? '<span class="ov-panel-delta ' + (tone||'') + '">' + delta + '</span>' : '') + '</div>'
+    + '<div class="ov-panel-row"><span class="ov-panel-val" id="ovPv' + idx + '">' + value + '</span>'
+    + '<span class="ov-panel-delta ' + (tone||'') + '" id="ovPd' + idx + '">' + (delta||'') + '</span></div>'
     + chart + '</div>';
 }
 
 function ovAnalytics(){
   var S = ovSeries();
+  OV_SERIES = S;
   if(!S.length) return '<div class="ov-mix-empty">No payroll history yet.</div>';
   var labels = S.map(function(d){ return d.mon + " '" + d.yr; });
   var money = function(v){ return "₱" + fmtMoney(v); };
@@ -3391,10 +3425,10 @@ function ovAnalytics(){
   var t3 = tag(last.heads, prev && prev.heads, true);
   var t4 = tag(last.ded, prev && prev.ded);
   return '<div class="ov-panels">'
-    + ovPanel('Total payout', money(last.total), t1.txt, ovSpark(S.map(function(d){return d.total;}), labels, '#007aff', money, ['#4da2ff','#0056b3']), t1.tone)
-    + ovPanel('Cost per employee', money(last.perHead), t2.txt, ovSpark(S.map(function(d){return d.perHead;}), labels, '#34c759', money, ['#63d67f','#248a3d']), t2.tone)
-    + ovPanel('Headcount paid', String(last.heads), t3.txt, ovSpark(S.map(function(d){return d.heads;}), labels, '#5e5ce6', function(v){ return v + ' paid'; }, ['#8a88f0','#4340b8']), t3.tone)
-    + ovPanel('Deductions and benefits', money(last.ded), t4.txt, ovSpark(S.map(function(d){return d.ded;}), labels, '#ff9500', money, ['#ffb04d','#c26f00']), t4.tone)
+    + ovPanel('Total payout', money(last.total), t1.txt, ovSpark(S.map(function(d){return d.total;}), labels, '#007aff', money, ['#4da2ff','#0056b3']), t1.tone, 0)
+    + ovPanel('Cost per employee', money(last.perHead), t2.txt, ovSpark(S.map(function(d){return d.perHead;}), labels, '#34c759', money, ['#63d67f','#248a3d']), t2.tone, 1)
+    + ovPanel('Headcount paid', String(last.heads), t3.txt, ovSpark(S.map(function(d){return d.heads;}), labels, '#5e5ce6', function(v){ return v + ' paid'; }, ['#8a88f0','#4340b8']), t3.tone, 2)
+    + ovPanel('Deductions and benefits', money(last.ded), t4.txt, ovSpark(S.map(function(d){return d.ded;}), labels, '#ff9500', money, ['#ffb04d','#c26f00']), t4.tone, 3)
     + '</div>' + ovMixChart();
 }
 
