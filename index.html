@@ -4089,7 +4089,25 @@ function renderPrevRun(){
   var head = '<tr>' + cols.map(function(c){ return '<th>' + c + '</th>'; }).join('') + '</tr>';
 
   var tot = { usd:0, ebury:0, php:0, payout:0 };
-  var rows = PREV_RUN.map(function(r){
+  // Mirror the employee list on screen so rows line up one-for-one.
+  var pp = pay202SelectedPeriod.split('-').map(Number);
+  var sM = pp[1]-1, sY = pp[0];
+  if(sM <= 0){ sM = 12; sY -= 1; }
+  var curStart = sY + '-' + String(sM).padStart(2,'0') + '-11';
+  var roster = EMP201.filter(function(e){ return !(e.exit_date && e.exit_date < curStart); })
+    .slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
+
+  var rows = roster.map(function(e){
+    var r = PREV_RUN.find(function(x){ return x.employee_name === e.name; });
+    if(!r){
+      return '<tr class="prev-new"><td>' + e.name + '</td>'
+        + '<td colspan="20" class="prev-newnote">Not in this pay run \u2014 new since ' + lbl + '</td>'
+        + '<td></td></tr>';
+    }
+    return prevRunRow(r);
+  }).join('');
+
+  function prevRunRow(r){
     var rate = parseFloat(r.ebury_rate) || 0;
     var usd = (parseFloat(r.standard_pay)||0) + (parseFloat(r.overtime_pay)||0) + (parseFloat(r.double_pay)||0)
             + (parseFloat(r.vacation_pay)||0) + (parseFloat(r.home_office)||0) + (parseFloat(r.others_usd)||0) + (parseFloat(r.bank_fees)||0);
@@ -4124,7 +4142,7 @@ function renderPrevRun(){
       + '<td>' + usdEq + '</td>'
       + '<td class="ppaid">\u2713</td>'
       + '</tr>';
-  }).join('');
+  }
 
   var foot = '<tr class="pay202-total-row"><td>Period Total</td>'
     + '<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>'
