@@ -1057,6 +1057,7 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
       </div>
     </div>
     <div id="timesheetBody"></div>
+    <div id="tsYearCalBody"></div>
   </div>
 
   <!-- EMPLOYEE 202 (FINAL PAYOUT COMPUTATION LAYOUT) -->
@@ -1690,6 +1691,84 @@ async function updateTimesheetHours(employeeId, workDate, hours){
   renderTimesheetGrid();
 }
 
+/* TIMESHEET — YEARLY WORKED VIEW */
+let tsycEmp = '';
+let tsycYear = new Date().getFullYear();
+function tsycSetEmp(v){ tsycEmp = v; renderTsYearCal(); }
+function tsycSetYear(v){ tsycYear = parseInt(v); renderTsYearCal(); }
+
+function renderTsYearCal(){
+  var host = document.getElementById('tsYearCalBody');
+  if(!host) return;
+  var staff = EMP201.slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
+  if(!staff.length){ host.innerHTML = ''; return; }
+  if(!tsycEmp || !staff.some(function(e){ return e.id === tsycEmp; })) tsycEmp = staff[0].id;
+  var hoursBy = {}, leaveBy = {}, holiday = {};
+  TIMESHEET_ENTRIES.forEach(function(r){
+    if(r.employee_id !== tsycEmp) return;
+    var h = parseFloat(r.hours_worked);
+    if(!isNaN(h)) hoursBy[r.work_date] = (hoursBy[r.work_date] || 0) + h;
+  });
+  (typeof LEAVE_ENTRIES !== 'undefined' ? LEAVE_ENTRIES : []).forEach(function(l){
+    if(l.employee_id === tsycEmp) leaveBy[l.leave_date] = l.leave_type;
+  });
+  (typeof VIC_HOLIDAYS !== 'undefined' ? VIC_HOLIDAYS : []).forEach(function(h){ holiday[h.date] = h.name; });
+  var MN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var DOW = ['S','M','T','W','T','F','S'];
+  var worked = 0, totalHrs = 0, otHrs = 0, partial = 0, maxCols = 37;
+  var head = '<tr><th class="eyc-month-col"></th>';
+  for(var c = 0; c < maxCols; c++){ head += '<th class="' + ((c%7===0||c%7===6)?'wknd':'') + '">' + DOW[c%7] + '</th>'; }
+  head += '</tr>';
+  var rows = '';
+  for(var m = 0; m < 12; m++){
+    var lead = new Date(tsycYear, m, 1).getDay();
+    var dim = new Date(tsycYear, m+1, 0).getDate();
+    rows += '<tr><td class="eyc-month-col">' + MN[m] + '</td>';
+    for(var c2 = 0; c2 < maxCols; c2++){
+      var dayNum = c2 - lead + 1;
+      if(dayNum < 1 || dayNum > dim){ rows += '<td class="blank"></td>'; continue; }
+      var ds = tsycYear + '-' + String(m+1).padStart(2,'0') + '-' + String(dayNum).padStart(2,'0');
+      var dow = new Date(ds + 'T00:00:00').getDay();
+      var cls = (dow === 0 || dow === 6) ? 'wknd' : '';
+      var h = hoursBy[ds], style = '', tip = ds;
+      if(h != null){
+        worked++; totalHrs += h;
+        if(h > 8){ otHrs += (h - 8); style = 'background:#af52de;border-color:#8e3fbe;color:#fff;'; tip += ' \u2014 ' + h + 'h'; }
+        else if(h < 8){ partial++; style = 'background:#ff9500;border-color:#c26f00;color:#fff;'; tip += ' \u2014 ' + h + 'h'; }
+        else { style = 'background:#007aff;border-color:#0056b3;color:#fff;'; tip += ' \u2014 8h'; }
+      } else if(leaveBy[ds]){ style = 'background:#34c759;border-color:#248a3d;color:#fff;'; tip += ' \u2014 ' + leaveBy[ds]; }
+      else if(holiday[ds]){ style = 'background:#5ac8fa;border-color:#2f9fd4;color:#fff;'; tip += ' \u2014 ' + holiday[ds]; }
+      rows += '<td class="' + cls + '" style="' + style + '" title="' + tip + '">' + dayNum + '</td>';
+    }
+    rows += '</tr>';
+  }
+  var years = [];
+  for(var y = tsycYear - 2; y <= tsycYear + 1; y++) years.push(y);
+  var empOpts = staff.map(function(e){ return '<option value="' + e.id + '"' + (e.id===tsycEmp?' selected':'') + '>' + e.name + '</option>'; }).join('');
+  var yrOpts = years.map(function(y){ return '<option value="' + y + '"' + (y===tsycYear?' selected':'') + '>' + y + '</option>'; }).join('');
+  var boxes = ''
+    + '<div class="eyc-count-box" style="border-color:#007aff;background:rgba(0,122,255,0.08)"><div class="eyc-count-val" style="color:#0056b3">' + worked + '</div><div class="eyc-count-lbl">Days worked</div></div>'
+    + '<div class="eyc-count-box" style="border-color:#8e8e93;background:rgba(142,142,147,0.08)"><div class="eyc-count-val">' + fmtHrs(totalHrs) + '</div><div class="eyc-count-lbl">Total hours</div></div>'
+    + '<div class="eyc-count-box" style="border-color:#af52de;background:rgba(175,82,222,0.08)"><div class="eyc-count-val" style="color:#8e3fbe">' + (otHrs ? fmtHrs(otHrs) : '0') + '</div><div class="eyc-count-lbl">Overtime hrs</div></div>'
+    + '<div class="eyc-count-box" style="border-color:#ff9500;background:rgba(255,149,0,0.08)"><div class="eyc-count-val" style="color:#a35b00">' + partial + '</div><div class="eyc-count-lbl">Short days</div></div>';
+  var legend = '<div class="ov-legend" style="padding:0 0 10px">'
+    + '<span class="ov-leg"><i style="background:#007aff"></i>Full day</span>'
+    + '<span class="ov-leg"><i style="background:#af52de"></i>Overtime</span>'
+    + '<span class="ov-leg"><i style="background:#ff9500"></i>Short day</span>'
+    + '<span class="ov-leg"><i style="background:#34c759"></i>Leave</span>'
+    + '<span class="ov-leg"><i style="background:#5ac8fa"></i>Public holiday</span></div>';
+  host.innerHTML = '<div class="card">'
+    + '<div class="card-header"><span class="card-title">Timesheet \u2014 Yearly View</span>'
+    +   '<span class="rec-count">Days worked per employee</span></div>'
+    + '<div class="eyc-topbar"><div class="eyc-name-year">'
+    +   '<div><label>Name</label><select class="search-box" onchange="tsycSetEmp(this.value)">' + empOpts + '</select></div>'
+    +   '<div><label>Year</label><select class="search-box" onchange="tsycSetYear(this.value)">' + yrOpts + '</select></div>'
+    + '</div><div class="eyc-counts">' + boxes + '</div></div>'
+    + '<div style="padding:0 18px">' + legend + '</div>'
+    + '<div class="eyc-cal-scroll"><table class="eyc-cal-table"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div>'
+    + '<div class="eyc-net">Recorded: <b>' + fmtHrs(totalHrs) + ' hours</b> across ' + worked + ' days in ' + tsycYear + '</div>'
+    + '</div>';
+}
 function renderTimesheetGrid(){
   const container = document.getElementById('timesheetBody');
   if(!container) return;
@@ -1778,6 +1857,7 @@ function renderTimesheetGrid(){
     const newScroll = container.querySelector('.tbl-scroll');
     if(newScroll) newScroll.scrollLeft = savedScrollLeft;
   }
+  if(typeof renderTsYearCal === 'function') renderTsYearCal();
 }
 
 /* ══════════════════════════════════════
