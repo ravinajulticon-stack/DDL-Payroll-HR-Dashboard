@@ -4142,25 +4142,17 @@ function renderPrevRun(){
 }
 
 // Keep the current and previous tables scrolled together.
+// Keep the current and previous tables scrolled together.
 function syncPrevScroll(){
   var cur  = document.querySelector('#pay202Body .tbl-scroll');
   var prev = document.querySelector('#pay202PrevBody .tbl-scroll');
   if(!cur || !prev) return;
-  if(cur.__linked && prev.__linked) return;
   var lock = false;
-  function link(a, b){
-    a.addEventListener('scroll', function(){
-      if(lock) return;
-      lock = true;
-      b.scrollLeft = a.scrollLeft;
-      requestAnimationFrame(function(){ lock = false; });
-    });
-  }
-  link(cur, prev);
-  link(prev, cur);
-  cur.__linked = true; prev.__linked = true;
+  cur.onscroll = function(){ if(lock) return; lock = true; prev.scrollLeft = cur.scrollLeft; requestAnimationFrame(function(){ lock = false; }); };
+  prev.onscroll = function(){ if(lock) return; lock = true; cur.scrollLeft = prev.scrollLeft; requestAnimationFrame(function(){ lock = false; }); };
   prev.scrollLeft = cur.scrollLeft;
 }
+
 
 
 function renderPay202(){
