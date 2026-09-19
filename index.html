@@ -602,7 +602,7 @@ body {
 .ov-card.high .ov-card-icon{ background:#ff3b30; }
 .ov-card.med .ov-card-icon{ background:#ff9500; }
 .ov-card-body{ flex:1; min-width:0; }
-.ov-card-text{ font-size:12.5px; font-weight:600; color:var(--text); line-height:1.35; }
+.ov-card-text{ font-size:11.5px; font-weight:700; color:var(--text); line-height:1.4; text-transform:uppercase; letter-spacing:0.4px; }
 .ov-card-hint{ font-size:10.5px; color:var(--text-3); margin-top:3px; }
 .ov-card-arrow{ color:var(--text-3); font-size:17px; line-height:1; align-self:center; }
 .ov-card.go:hover .ov-card-arrow{ color:var(--blue); }
@@ -3104,11 +3104,11 @@ function ovIssues(periodStr){
   var rt = ovRateFor(periodStr);
   var r = ovPeriodRange(periodStr);
 
-  if(!rt || rt.ebury_rate == null) out.push({ sev:'high', text:'Ebury USD/PHP rate not set', hint:'Needed to compute pay', go:'pay202' });
-  if(!rt || rt.aud_rate == null) out.push({ sev:'med', text:'Ebury AUD/PHP rate not set', hint:'Needed for the AUD column', go:'pay202' });
+  if(!rt || rt.ebury_rate == null) out.push({ sev:'high', text:'Ebury USD/PHP rate not set', hint: fmtPeriodLabel(periodStr + '-01'), go:'pay202' });
+  if(!rt || rt.aud_rate == null) out.push({ sev:'med', text:'Ebury AUD/PHP rate not set', hint: fmtPeriodLabel(periodStr + '-01'), go:'pay202' });
 
   var unpaid = st.expected - st.paid;
-  if(unpaid > 0) out.push({ sev: st.paid ? 'med' : 'high', text: unpaid + ' employee' + (unpaid!==1?'s':'') + ' not yet marked paid', hint: st.paid + ' of ' + st.expected + ' done', go:'pay202' });
+  if(unpaid > 0) out.push({ sev: st.paid ? 'med' : 'high', text: unpaid + ' employee' + (unpaid!==1?'s':'') + ' not yet marked paid', hint: st.paid + ' of ' + st.expected + ' marked paid', go:'pay202' });
 
   if(gaps.total > 0) out.push({ sev:'med', text: gaps.total + ' weekday' + (gaps.total!==1?'s':'') + ' missing from timesheets', hint: gaps.staff.slice(0,3).map(function(s){ return s.name.split(' ')[0]; }).join(', '), go:'timesheet' });
 
@@ -3127,7 +3127,7 @@ function ovIssues(periodStr){
 
   var holsInPeriod = VIC_HOLIDAYS.filter(function(h){ return h.date >= r.start && h.date <= r.end; })
     .filter(function(h){ var d = new Date(h.date + 'T00:00:00').getDay(); return d !== 0 && d !== 6; });
-  if(holsInPeriod.length) out.push({ sev:'low', text: holsInPeriod.length + ' public holiday' + (holsInPeriod.length!==1?'s':'') + ' fell on a weekday', hint:'Check Double Pay \u00b7 ' + holsInPeriod.map(function(h){return h.name;}).slice(0,2).join(', '), go:'leave' });
+  if(holsInPeriod.length) out.push({ sev:'low', text: holsInPeriod.length + ' public holiday' + (holsInPeriod.length!==1?'s':'') + ' fell on a weekday', hint: holsInPeriod.map(function(h){return h.name;}).slice(0,2).join(', '), go:'leave' });
 
   var order = { high:0, med:1, low:2 };
   out.sort(function(a,b){ return order[a.sev] - order[b.sev]; });
