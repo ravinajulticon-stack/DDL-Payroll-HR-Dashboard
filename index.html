@@ -3158,7 +3158,7 @@ function drawPhMap(staff){
   window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 13, attribution: '\u00a9 OpenStreetMap'
   }).addTo(locMap);
-  locMap.fitBounds([[4.4,116.5],[20.5,126.8]], { padding:[16,16] });
+  locMap.fitBounds([[4.9,117.0],[19.4,126.4]], { padding:[6,6] });
 
   var byCity = {};
   staff.forEach(function(e){
@@ -3221,7 +3221,7 @@ function drawPhMap(staff){
     if(!locMap) return;
     locMap.invalidateSize();
     // re-fit once the container has its real size, or the country renders tiny
-    locMap.fitBounds([[4.4,116.5],[20.5,126.8]], { padding:[16,16] });
+    locMap.fitBounds([[4.9,117.0],[19.4,126.4]], { padding:[6,6] });
     place();
   }, 300);
 }
