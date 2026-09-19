@@ -192,11 +192,7 @@ body {
 .kpi-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; background: transparent; border-radius: 0; overflow: visible; box-shadow: none; }
 .kpi-item  { padding: 16px 18px; border-radius: var(--radius); color:#fff; box-shadow: 0 3px 14px rgba(0,0,0,0.13);
              background: linear-gradient(135deg, #6b7c93 0%, #51617a 100%); }
-.kpi-item:nth-child(1){ background: linear-gradient(135deg, #0a84ff 0%, #0060df 100%); }  /* total */
-.kpi-item:nth-child(2){ background: linear-gradient(135deg, #34c759 0%, #1e7a35 100%); }  /* active */
-.kpi-item:nth-child(3){ background: linear-gradient(135deg, #ff9f0a 0%, #e07600 100%); }  /* resigned */
-.kpi-item:nth-child(4){ background: linear-gradient(135deg, #ff6259 0%, #d92d20 100%); }  /* terminated */
-.kpi-item:nth-child(5){ background: linear-gradient(135deg, #af52de 0%, #8e3fbe 100%); }  /* sss enrolled */
+/* headcount facts never change state, so they share one neutral tone */
 .kpi-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: rgba(255,255,255,0.82); margin-bottom: 6px; }
 .kpi-val   { font-size: 26px; font-weight: 700; letter-spacing: -1px; line-height: 1; color: #fff; }
 /* the tile gradient already carries the meaning, so values stay white */
