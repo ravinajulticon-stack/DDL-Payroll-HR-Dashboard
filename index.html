@@ -1034,7 +1034,7 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
                 <th>Department</th>
                 <th>Employment Type</th>
                 <th>Status</th>
-                <th>Exit Date</th>
+                <th>Start Date</th><th>Exit Date</th>
                 <th>Leave Payout</th>
                 <th>Work Email Address</th>
                 <th>SSS</th>
@@ -4693,6 +4693,7 @@ function render(){
       <td>${field(rec,'department','Department')}</td>
       <td>${typeSelect(rec)}</td>
       <td>${statusPillOrSelect(rec)}</td>
+      <td>${field(rec,'start_date','','date')}</td>
       <td>${field(rec,'exit_date','','date')}</td>
       <td>${leavePayoutCell(rec)}</td>
       <td>${field(rec,'work_email','name@company.com','email')}</td>
