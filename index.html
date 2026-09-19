@@ -3344,19 +3344,29 @@ function ovSeries(){
   });
 }
 
-function ovSpark(vals, labels, colour, fmtFn){
+// Small isometric bar sparkline; the latest column is highlighted.
+function ovSpark(vals, labels, colour, fmtFn, shades){
   if(!vals.length) return '';
   var max = Math.max.apply(null, vals) || 1;
-  var w = 320, h = 74, padB = 16, n = vals.length, slot = w / n, bw = Math.min(slot*0.58, 20);
-  return '<svg viewBox="0 0 ' + w + ' ' + h + '" class="ov-spark">' + vals.map(function(v, i){
-    var bh = (h - padB) * (v / max);
+  var w = 320, h = 78, padB = 16, padT = 6, n = vals.length;
+  var slot = w / n, bw = Math.min(slot*0.52, 18), dx = Math.min(slot*0.18, 6), dy = dx * 0.66;
+  var plotH = h - padB - padT;
+  var out = vals.map(function(v, i){
+    var bh = Math.max(plotH * (v / max), 2);
     var x = i*slot + (slot-bw)/2, y = h - padB - bh;
     var last = i === n-1;
-    return '<rect x="' + x + '" y="' + y + '" width="' + bw + '" height="' + Math.max(bh,1.5) + '" rx="2" fill="' + colour + '" opacity="' + (last ? 1 : 0.3) + '">'
+    var op = last ? 1 : 0.30;
+    return '<g opacity="' + op + '">'
+      + '<polygon points="' + (x+bw) + ',' + y + ' ' + (x+bw+dx) + ',' + (y-dy) + ' ' + (x+bw+dx) + ',' + (y+bh-dy) + ' ' + (x+bw) + ',' + (y+bh) + '" fill="' + shades[1] + '"/>'
+      + '<polygon points="' + x + ',' + y + ' ' + (x+dx) + ',' + (y-dy) + ' ' + (x+bw+dx) + ',' + (y-dy) + ' ' + (x+bw) + ',' + y + '" fill="' + shades[0] + '"/>'
+      + '<rect x="' + x + '" y="' + y + '" width="' + bw + '" height="' + bh + '" fill="' + colour + '">'
       + '<title>' + labels[i] + ': ' + fmtFn(v) + '</title></rect>'
-      + (last ? '<text x="' + (x+bw/2) + '" y="' + (h-4) + '" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.5">' + labels[i] + '</text>' : '');
-  }).join('') + '</svg>';
+      + '</g>'
+      + (last ? '<text x="' + (x+bw/2+dx/2) + '" y="' + (h-4) + '" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.5">' + labels[i] + '</text>' : '');
+  }).join('');
+  return '<svg viewBox="0 0 ' + w + ' ' + h + '" class="ov-spark">' + out + '</svg>';
 }
+
 
 function ovPanel(label, value, delta, chart, tone){
   return '<div class="ov-panel"><div class="ov-panel-lbl">' + label + '</div>'
@@ -3381,10 +3391,10 @@ function ovAnalytics(){
   var t3 = tag(last.heads, prev && prev.heads, true);
   var t4 = tag(last.ded, prev && prev.ded);
   return '<div class="ov-panels">'
-    + ovPanel('Total payout', money(last.total), t1.txt, ovSpark(S.map(function(d){return d.total;}), labels, '#007aff', money), t1.tone)
-    + ovPanel('Cost per employee', money(last.perHead), t2.txt, ovSpark(S.map(function(d){return d.perHead;}), labels, '#34c759', money), t2.tone)
-    + ovPanel('Headcount paid', String(last.heads), t3.txt, ovSpark(S.map(function(d){return d.heads;}), labels, '#5e5ce6', function(v){ return v + ' paid'; }), t3.tone)
-    + ovPanel('Deductions and benefits', money(last.ded), t4.txt, ovSpark(S.map(function(d){return d.ded;}), labels, '#ff9500', money), t4.tone)
+    + ovPanel('Total payout', money(last.total), t1.txt, ovSpark(S.map(function(d){return d.total;}), labels, '#007aff', money, ['#4da2ff','#0056b3']), t1.tone)
+    + ovPanel('Cost per employee', money(last.perHead), t2.txt, ovSpark(S.map(function(d){return d.perHead;}), labels, '#34c759', money, ['#63d67f','#248a3d']), t2.tone)
+    + ovPanel('Headcount paid', String(last.heads), t3.txt, ovSpark(S.map(function(d){return d.heads;}), labels, '#5e5ce6', function(v){ return v + ' paid'; }, ['#8a88f0','#4340b8']), t3.tone)
+    + ovPanel('Deductions and benefits', money(last.ded), t4.txt, ovSpark(S.map(function(d){return d.ded;}), labels, '#ff9500', money, ['#ffb04d','#c26f00']), t4.tone)
     + '</div>' + ovMixChart();
 }
 
