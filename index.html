@@ -1836,12 +1836,14 @@ function renderTimesheetGrid(){
   let pStartM = tsPM - 1, pStartY = tsPY;
   if(pStartM <= 0){ pStartM += 12; pStartY -= 1; }
   const periodStart = `${pStartY}-${String(pStartM).padStart(2,'0')}-11`;
+  const periodEnd = `${tsSelectedPeriod}-10`;
 
   const employees = EMP201
     .filter(e => {
       if(tsStatusFilter && e.status !== tsStatusFilter) return false;
       // Hide if employee exited before this period started
       if(e.exit_date && e.exit_date < periodStart) return false;
+    if(e.start_date && e.start_date > periodEnd) return false;
       return true;
     })
     .slice()
@@ -3239,7 +3241,12 @@ function headcountFor(periodStr){
   var sm = p[1]-1, sy = p[0];
   if(sm <= 0){ sm = 12; sy -= 1; }
   var start = sy + '-' + String(sm).padStart(2,'0') + '-11';
-  return EMP201.filter(function(e){ return !(e.exit_date && e.exit_date < start); }).length;
+  var end = p[0] + '-' + String(p[1]).padStart(2,'0') + '-10';
+  return EMP201.filter(function(e){
+    if(e.exit_date && e.exit_date < start) return false;
+    if(e.start_date && e.start_date > end) return false;
+    return true;
+  }).length;
 }
 
 async function resolveActivePeriod(){
@@ -3308,7 +3315,12 @@ function ovPeriodRange(periodStr){
 // Employees in scope for a period (exclude anyone who left before it began).
 function ovActiveFor(periodStr){
   var r = ovPeriodRange(periodStr);
-  return EMP201.filter(function(e){ return !(e.exit_date && e.exit_date < r.start); });
+  // in scope only if they had started by the period end and hadn't left before it began
+  return EMP201.filter(function(e){
+    if(e.exit_date && e.exit_date < r.start) return false;
+    if(e.start_date && e.start_date > r.end) return false;
+    return true;
+  });
 }
 
 // ---- This Period ----
@@ -3502,7 +3514,7 @@ function ovForecast(periodStr){
   // Prefer the next period's own rate; otherwise carry the most recent one forward as an estimate.
   var br = ovBestRate(nextP);
   var rate = br.rate, estimated = br.estimated;
-  var emps = ovActiveFor(nextP).filter(function(e){ return !(e.exit_date && e.exit_date < ovPeriodRange(nextP).start); });
+  var emps = ovActiveFor(nextP);
 
   var basePhp = 0;
   emps.forEach(function(e){
@@ -4270,7 +4282,12 @@ function renderPrevRun(){
   var sM = pp[1]-1, sY = pp[0];
   if(sM <= 0){ sM = 12; sY -= 1; }
   var curStart = sY + '-' + String(sM).padStart(2,'0') + '-11';
-  var roster = EMP201.filter(function(e){ return !(e.exit_date && e.exit_date < curStart); })
+  var curEnd = pp[0] + '-' + String(pp[1]).padStart(2,'0') + '-10';
+  var roster = EMP201.filter(function(e){
+    if(e.exit_date && e.exit_date < curStart) return false;
+    if(e.start_date && e.start_date > curEnd) return false;
+    return true;
+  })
     .slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
 
   var rows = roster.map(function(e){
@@ -4377,7 +4394,10 @@ function renderPay202(){
     const [pY,pM] = pay202SelectedPeriod.split('-').map(Number);
     let sM = pM-1, sY = pY; if(sM<=0){ sM+=12; sY-=1; }
     const ps = sY + '-' + String(sM).padStart(2,'0') + '-11';
-    return !(e.exit_date && e.exit_date < ps);
+    const pe = pY + '-' + String(pM).padStart(2,'0') + '-10';
+    if(e.exit_date && e.exit_date < ps) return false;
+    if(e.start_date && e.start_date > pe) return false;
+    return true;
   }).length;
   const _locked = _periodRows > 0 && _periodPaid >= _periodRows;
   [rateInput, audInput].forEach(function(el){
