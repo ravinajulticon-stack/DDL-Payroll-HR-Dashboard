@@ -635,6 +635,12 @@ body {
 .wk-sel:focus{ outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(0,122,255,0.12); }
 .card-body:has(.wk-label) .search-box{ height:34px; border-radius:8px; }
 .card-body:has(.wk-label) .io-btn{ height:34px; }
+.loc-grp{ font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; }
+.loc-grp.luzon{ background:rgba(0,122,255,0.12); color:#0056b3; }
+.loc-grp.visayas{ background:rgba(52,199,89,0.14); color:#1e7a35; }
+.loc-grp.mindanao{ background:rgba(255,149,0,0.14); color:#a35b00; }
+.loc-count span{ display:flex; align-items:center; justify-content:center; width:20px; height:20px; font-size:11px; font-weight:800; color:#fff; }
+.leaflet-container{ font-family:inherit; }
 .ov-panels{ display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:1px; background:var(--border); border-top:1px solid var(--border); }
 .ov-panel{ background:var(--surface-1); padding:13px 15px 8px; }
 .ov-panel-lbl{ font-size:9.5px; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-3); font-weight:600; }
@@ -882,6 +888,8 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 </head>
 <body>
 
@@ -911,6 +919,7 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
     <button class="seg-btn" onclick="switchView('leave',this)"><span class="seg-txt">Employee 203</span><span class="seg-ic" style="color:#ff9500"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.2" y="3.2" width="11.6" height="10.6" rx="1.5"/><path d="M2.2 6.4h11.6M5.5 1.8v2.6M10.5 1.8v2.6" stroke-linecap="round"/></svg></span></button>
         <button class="seg-btn" onclick="switchView('loans',this)"><span class="seg-txt">Employee 204</span><span class="seg-ic" style="color:#af52de"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.8" y="4" width="12.4" height="8.6" rx="1.5"/><path d="M1.8 7h12.4" stroke-linecap="round"/></svg></span></button>
     <button class="seg-btn" onclick="switchView('history',this)"><span class="seg-txt">Employee 205</span><span class="seg-ic" style="color:#6b7c93"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 5.2h11v7.3a1.2 1.2 0 0 1-1.2 1.2H3.7a1.2 1.2 0 0 1-1.2-1.2z"/><rect x="1.6" y="2.3" width="12.8" height="2.9" rx="1"/><path d="M6.4 8.3h3.2" stroke-linecap="round"/></svg></span></button>
+        <button class="seg-btn" onclick="switchView('locator',this)"><span class="seg-txt">Employee 206</span><span class="seg-ic" style="color:#ff375f"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 14.5s5-4.6 5-8.2A5 5 0 0 0 3 6.3c0 3.6 5 8.2 5 8.2z"/><circle cx="8" cy="6.2" r="1.9"/></svg></span></button>
         <button class="seg-btn" onclick="switchView('payslip',this)"><span class="seg-txt">Payslip</span><span class="seg-ic" style="color:#0aa2c0"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3.6 1.9h8.8v12.2l-1.8-1.1-1.8 1.1-1.6-1.1-1.8 1.1-1.8-1.1z"/><path d="M6 5.4h4M6 8.3h4" stroke-linecap="round"/></svg></span></button>
   </div>
   <div class="toolbar-sep"></div>
@@ -1072,6 +1081,11 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
     <div id="loansBody"></div>
   </div>
 
+  <!-- EMPLOYEE LOCATOR -->
+  <div id="locatorView" style="display:none">
+    <div id="locatorBody"></div>
+  </div>
+
   <!-- PAYSLIP -->
   <div id="payslipView" style="display:none">
     <div id="payslipBody"></div>
@@ -1175,6 +1189,7 @@ function switchView(view, btn){
   document.getElementById('leaveView').style.display = view === 'leave' ? 'block' : 'none';
   document.getElementById('loansView').style.display = view === 'loans' ? 'block' : 'none';
   document.getElementById('payslipView').style.display = view === 'payslip' ? 'block' : 'none';
+  document.getElementById('locatorView').style.display = view === 'locator' ? 'block' : 'none';
   document.getElementById('timesheetView').style.display = view === 'timesheet' ? 'block' : 'none';
   document.getElementById('pay202View').style.display = view === 'pay202' ? 'block' : 'none';
   document.getElementById('searchBox').style.display = view === 'detail' ? 'inline-block' : 'none';
@@ -1204,6 +1219,7 @@ function switchView(view, btn){
     renderEmpYearCalPanel();
   }
   if(view === 'overview'){ if(!ovLoaded) loadOverviewData(); else renderOverview(); }
+  if(view === 'locator'){ renderLocator(); }
   if(view === 'payslip'){ loadPayslipRows(); }
   if((view === 'loans' || view === 'pay202') && !salaryLoansLoaded){
     salaryLoansLoaded = true;
@@ -2985,6 +3001,146 @@ function buildPayslip(r){
     + '<div class="ps-net"><span>NET PAY</span><span>' + psMoney(net, "₱") + '</span></div>'
     + '<div class="ps-foot">If you have any questions about this payslip, please contact:<br>Jerald Ravina &middot; jerald@digitaldoorlocks.com.au</div>'
     + '</div>';
+}
+
+/* EMPLOYEE LOCATOR (Employee 206) */
+// City-level coordinates only — no home addresses are stored.
+const PH_CITIES = {
+  'Quezon City':[14.6760,121.0437,'Metro Manila'], 'Manila':[14.5995,120.9842,'Metro Manila'],
+  'Makati':[14.5547,121.0244,'Metro Manila'], 'Pasig':[14.5764,121.0851,'Metro Manila'],
+  'Taguig':[14.5176,121.0509,'Metro Manila'], 'Mandaluyong':[14.5794,121.0359,'Metro Manila'],
+  'Marikina':[14.6507,121.1029,'Metro Manila'], 'Paranaque':[14.4793,121.0198,'Metro Manila'],
+  'Las Pinas':[14.4499,120.9833,'Metro Manila'], 'Caloocan':[14.6488,120.9830,'Metro Manila'],
+  'Valenzuela':[14.7000,120.9830,'Metro Manila'], 'Muntinlupa':[14.3832,121.0409,'Metro Manila'],
+  'Pasay':[14.5378,121.0014,'Metro Manila'], 'San Juan':[14.6019,121.0355,'Metro Manila'],
+  'Antipolo':[14.5878,121.1760,'Rizal'], 'Cainta':[14.5786,121.1222,'Rizal'],
+  'Bacoor':[14.4590,120.9366,'Cavite'], 'Imus':[14.4297,120.9367,'Cavite'],
+  'Dasmarinas':[14.3294,120.9367,'Cavite'], 'General Trias':[14.3869,120.8811,'Cavite'],
+  'Binan':[14.3420,121.0800,'Laguna'], 'Santa Rosa':[14.3122,121.1114,'Laguna'],
+  'Calamba':[14.2117,121.1653,'Laguna'], 'San Pedro':[14.3583,121.0470,'Laguna'],
+  'Baguio':[16.4023,120.5960,'Benguet'], 'Dagupan':[16.0430,120.3340,'Pangasinan'],
+  'San Fernando (Pampanga)':[15.0349,120.6899,'Pampanga'], 'Angeles':[15.1450,120.5930,'Pampanga'],
+  'Tarlac City':[15.4755,120.5960,'Tarlac'], 'Cabanatuan':[15.4865,120.9670,'Nueva Ecija'],
+  'Malolos':[14.8433,120.8114,'Bulacan'], 'Meycauayan':[14.7360,120.9600,'Bulacan'],
+  'San Jose del Monte':[14.8139,121.0453,'Bulacan'], 'Olongapo':[14.8292,120.2828,'Zambales'],
+  'Batangas City':[13.7565,121.0583,'Batangas'], 'Lipa':[13.9411,121.1622,'Batangas'],
+  'Lucena':[13.9314,121.6170,'Quezon'], 'Naga':[13.6218,123.1948,'Camarines Sur'],
+  'Legazpi':[13.1391,123.7438,'Albay'], 'Puerto Princesa':[9.7392,118.7353,'Palawan'],
+  'Cebu City':[10.3157,123.8854,'Cebu'], 'Mandaue':[10.3237,123.9227,'Cebu'],
+  'Lapu-Lapu':[10.3103,123.9494,'Cebu'], 'Talisay (Cebu)':[10.2447,123.8494,'Cebu'],
+  'Iloilo City':[10.7202,122.5621,'Iloilo'], 'Bacolod':[10.6407,122.9689,'Negros Occidental'],
+  'Dumaguete':[9.3103,123.3081,'Negros Oriental'], 'Tacloban':[11.2444,125.0048,'Leyte'],
+  'Ormoc':[11.0064,124.6075,'Leyte'], 'Roxas City':[11.5853,122.7511,'Capiz'],
+  'Kalibo':[11.7086,122.3648,'Aklan'], 'Tagbilaran':[9.6496,123.8536,'Bohol'],
+  'Davao City':[7.1907,125.4553,'Davao del Sur'], 'Cagayan de Oro':[8.4542,124.6319,'Misamis Oriental'],
+  'General Santos':[6.1164,125.1716,'South Cotabato'], 'Zamboanga City':[6.9214,122.0790,'Zamboanga del Sur'],
+  'Butuan':[8.9475,125.5406,'Agusan del Norte'], 'Iligan':[8.2280,124.2452,'Lanao del Norte'],
+  'Cotabato City':[7.2047,124.2310,'Maguindanao'], 'Koronadal':[6.5031,124.8469,'South Cotabato'],
+  'Valencia (Bukidnon)':[7.9064,125.0925,'Bukidnon'], 'Surigao City':[9.7838,125.4888,'Surigao del Norte'],
+  'Pagadian':[7.8257,123.4366,'Zamboanga del Sur'], 'Digos':[6.7496,125.3572,'Davao del Sur'],
+  'Tagum':[7.4478,125.8078,'Davao del Norte']
+};
+
+function islandGroupOf(lat){ return lat >= 12.4 ? 'Luzon' : (lat >= 8.6 ? 'Visayas' : 'Mindanao'); }
+
+let locMap = null, locMarkers = [];
+
+async function saveEmployeeCity(empId, city){
+  var meta = PH_CITIES[city];
+  var payload = { city: city || null, province: meta ? meta[2] : null };
+  const { error } = await sb.from('employees_201').update(payload).eq('id', empId);
+  if(error){ alert('Could not save location: ' + error.message); return; }
+  var e = EMP201.find(function(x){ return x.id === empId; });
+  if(e){ e.city = payload.city; e.province = payload.province; }
+  renderLocator();
+}
+
+function renderLocator(){
+  var host = document.getElementById('locatorBody');
+  if(!host) return;
+  var staff = EMP201.filter(function(e){ return e.status === 'Active'; })
+    .slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
+
+  var groups = { Luzon:0, Visayas:0, Mindanao:0 }, placed = 0;
+  staff.forEach(function(e){
+    var m = e.city && PH_CITIES[e.city];
+    if(m){ placed++; groups[islandGroupOf(m[0])]++; }
+  });
+
+  var cityOpts = Object.keys(PH_CITIES).sort().map(function(c){
+    return '<option value="' + c + '">' + c + '</option>';
+  }).join('');
+
+  var rows = staff.map(function(e){
+    var m = e.city && PH_CITIES[e.city];
+    var sel = Object.keys(PH_CITIES).sort().map(function(c){
+      return '<option value="' + c + '"' + (e.city === c ? ' selected' : '') + '>' + c + '</option>';
+    }).join('');
+    return '<tr>'
+      + '<td>' + e.name + '</td>'
+      + '<td><select class="wk-sel" style="width:190px" onchange="saveEmployeeCity(\'' + e.id + '\', this.value)">'
+      +   '<option value="">\u2014 not set \u2014</option>' + sel + '</select></td>'
+      + '<td>' + (m ? m[2] : '\u2014') + '</td>'
+      + '<td>' + (m ? '<span class="loc-grp ' + islandGroupOf(m[0]).toLowerCase() + '">' + islandGroupOf(m[0]) + '</span>' : '\u2014') + '</td>'
+      + '</tr>';
+  }).join('');
+
+  host.innerHTML = '<div class="card" style="margin-bottom:14px">'
+    + '<div class="card-header"><span class="card-title">Where the team is</span>'
+    +   '<span class="rec-count">' + placed + ' of ' + staff.length + ' located \u00b7 city level only</span></div>'
+    + '<div class="ov-panels">'
+    +   '<div class="ov-panel"><div class="ov-panel-lbl">Luzon</div><div class="ov-panel-row"><span class="ov-panel-val">' + groups.Luzon + '</span></div></div>'
+    +   '<div class="ov-panel"><div class="ov-panel-lbl">Visayas</div><div class="ov-panel-row"><span class="ov-panel-val">' + groups.Visayas + '</span></div></div>'
+    +   '<div class="ov-panel"><div class="ov-panel-lbl">Mindanao</div><div class="ov-panel-row"><span class="ov-panel-val">' + groups.Mindanao + '</span></div></div>'
+    +   '<div class="ov-panel"><div class="ov-panel-lbl">Not set</div><div class="ov-panel-row"><span class="ov-panel-val">' + (staff.length - placed) + '</span></div></div>'
+    + '</div></div>'
+    + '<div class="card" style="margin-bottom:14px"><div id="phMap" style="height:520px;border-radius:0 0 var(--radius) var(--radius);overflow:hidden"></div></div>'
+    + '<div class="card"><div class="card-header"><span class="card-title">Set Location</span>'
+    +   '<span class="rec-count">City only \u2014 no street addresses</span></div>'
+    + '<div class="tbl-scroll"><table class="rec-table"><thead><tr><th>Name</th><th>City</th><th>Province</th><th>Island group</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody></table></div></div>';
+
+  drawPhMap(staff);
+}
+
+function drawPhMap(staff){
+  var el = document.getElementById('phMap');
+  if(!el || typeof window.L === 'undefined') return;
+  if(locMap){ locMap.remove(); locMap = null; }
+  locMap = window.L.map(el, { scrollWheelZoom:false }).setView([12.0, 122.0], 6);
+  window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 12, attribution: '\u00a9 OpenStreetMap'
+  }).addTo(locMap);
+
+  // group employees who share a city so pins don't stack invisibly
+  var byCity = {};
+  staff.forEach(function(e){
+    if(!e.city || !PH_CITIES[e.city]) return;
+    if(!byCity[e.city]) byCity[e.city] = [];
+    byCity[e.city].push(e.name);
+  });
+
+  var pts = [];
+  Object.keys(byCity).forEach(function(city){
+    var m = PH_CITIES[city];
+    var names = byCity[city];
+    var grp = islandGroupOf(m[0]);
+    var colour = grp === 'Luzon' ? '#007aff' : (grp === 'Visayas' ? '#34c759' : '#ff9500');
+    pts.push([m[0], m[1]]);
+    var marker = window.L.circleMarker([m[0], m[1]], {
+      radius: 9 + Math.min(names.length - 1, 4) * 3,
+      fillColor: colour, color:'#fff', weight:2, opacity:1, fillOpacity:0.85
+    }).addTo(locMap);
+    marker.bindTooltip('<b>' + city + '</b><br>' + names.join('<br>'), { direction:'top' });
+    if(names.length > 1){
+      window.L.marker([m[0], m[1]], {
+        icon: window.L.divIcon({ className:'loc-count', html:'<span>' + names.length + '</span>', iconSize:[20,20] })
+      }).addTo(locMap).bindTooltip('<b>' + city + '</b><br>' + names.join('<br>'), { direction:'top' });
+    }
+  });
+
+  if(pts.length) locMap.fitBounds(pts, { padding:[45,45], maxZoom:9 });
+  setTimeout(function(){ if(locMap) locMap.invalidateSize(); }, 250);
 }
 
 function renderPayslipPanel(){
