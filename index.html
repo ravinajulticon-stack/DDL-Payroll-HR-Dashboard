@@ -4137,6 +4137,29 @@ function renderPrevRun(){
     +   '<span class="rec-count">' + lbl + ' \u00b7 ' + PREV_RUN.length + ' paid \u00b7 ' + "₱" + fmtMoney(tot.payout) + '</span></div>'
     + '<div class="tbl-scroll"><table class="rec-table pay202-table prev-run"><thead>' + head + '</thead><tbody>' + rows + foot + '</tbody></table></div>'
     + '</div>';
+
+  syncPrevScroll();
+}
+
+// Keep the current and previous tables scrolled together.
+function syncPrevScroll(){
+  var cur  = document.querySelector('#pay202Body .tbl-scroll');
+  var prev = document.querySelector('#pay202PrevBody .tbl-scroll');
+  if(!cur || !prev) return;
+  if(cur.__linked && prev.__linked) return;
+  var lock = false;
+  function link(a, b){
+    a.addEventListener('scroll', function(){
+      if(lock) return;
+      lock = true;
+      b.scrollLeft = a.scrollLeft;
+      requestAnimationFrame(function(){ lock = false; });
+    });
+  }
+  link(cur, prev);
+  link(prev, cur);
+  cur.__linked = true; prev.__linked = true;
+  prev.scrollLeft = cur.scrollLeft;
 }
 
 
