@@ -4145,10 +4145,7 @@ function renderPrevRun(){
   }
 
   var foot = '<tr class="pay202-total-row"><td>Period Total</td>'
-    + '<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>'
-    + '<td>' + m(tot.usd) + '</td><td>' + m(tot.ebury) + '</td>'
-    + '<td></td><td></td><td></td><td></td><td></td><td></td>'
-    + '<td>' + m(tot.php) + '</td><td>' + m(tot.payout) + '</td><td></td><td></td><td></td></tr>';
+    + '<td colspan="21" class="prev-newnote">Full period total shown in the card header</td></tr>';
 
   host.innerHTML = '<div class="card">'
     + '<div class="card-header"><span class="card-title">Previous Pay Run</span>'
