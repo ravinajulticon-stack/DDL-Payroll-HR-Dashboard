@@ -709,6 +709,11 @@ body {
 .ov-cmp.down .ov-cmp-arrow{ color:var(--green); }
 .ov-cmp-txt{ font-size:12px; color:var(--text-2); }
 .ov-cmp-why{ font-size:10.5px; color:var(--text-3); }
+.ps-zoom{ display:inline-flex; align-items:center; gap:2px; background:var(--surface-3); border-radius:999px; padding:3px; margin-right:8px; }
+.ps-zoom .io-btn{ width:26px; height:26px; padding:0; border-radius:50%; font-size:14px; font-weight:700; line-height:1; display:flex; align-items:center; justify-content:center; }
+#psZoomLabel{ font-size:11.5px; font-weight:700; color:var(--text-2); min-width:42px; text-align:center; cursor:pointer; user-select:none; }
+#psZoomLabel:hover{ color:var(--blue); }
+@media print{ .ps-zoom{ display:none !important; } #payslipSheets{ zoom:1 !important; } }
 .ps-sheet{ background:#fff; color:#1a1a1a; border-radius:10px; padding:30px 34px; margin:0 auto 18px; box-shadow:0 2px 16px rgba(0,0,0,0.10); max-width:860px; }
 .ps-top{ display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #006CE5; padding-bottom:12px; margin-bottom:16px; }
 .ps-co{ font-size:24px; font-weight:800; color:#0A0031; letter-spacing:-0.5px; }
@@ -3202,7 +3207,12 @@ function renderPayslipPanel(){
     +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Employee</label>'
     +       '<select class="search-box" id="payslipEmpSelect" style="min-width:190px"><option value="">All Employees</option>'
     +       names.map(function(n){ return '<option value="' + n + '"' + (n===payslipEmp?' selected':'') + '>' + n + '</option>'; }).join('') + '</select></div>'
-    +     '<button class="io-btn primary" onclick="printPayslips()">Print / Save PDF</button>'
+    +     '<div class="ps-zoom">'
+    +     '<button class="io-btn" onclick="psZoomOut()" title="Zoom out">\u2212</button>'
+    +     '<span id="psZoomLabel" onclick="psZoomReset()" title="Reset to 100%">100%</span>'
+    +     '<button class="io-btn" onclick="psZoomIn()" title="Zoom in">+</button>'
+    +   '</div>'
+    +   '<button class="io-btn primary" onclick="printPayslips()">Print / Save PDF</button>'
     +     '<button class="io-btn" id="psBulkBtn" onclick="downloadAllPayslips()" title="Saves one PDF per employee">Download All (ZIP)</button>'
     +   '</div>'
     + '</div>'
@@ -3217,6 +3227,21 @@ function renderPayslipPanel(){
   if(typeof attachMonthPicker === 'function') attachMonthPicker('payslipPeriodInput');
 }
 
+let psZoom = 100;
+
+// Preview zoom only — print and PDF export always use 100%.
+function psSetZoom(z){
+  psZoom = Math.max(50, Math.min(150, z));
+  var wrap = document.getElementById('payslipSheets');
+  if(wrap){
+    wrap.style.zoom = psZoom / 100;
+  }
+  var lbl = document.getElementById('psZoomLabel');
+  if(lbl) lbl.textContent = psZoom + '%';
+}
+function psZoomIn(){ psSetZoom(psZoom + 10); }
+function psZoomOut(){ psSetZoom(psZoom - 10); }
+function psZoomReset(){ psSetZoom(100); }
 function printPayslips(){ window.print(); }
 
 function psFileName(row){
