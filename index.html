@@ -1337,11 +1337,44 @@ function field(rec, key, placeholder='', type='text'){
   return `<input type="${type}" value="${val}" placeholder="${placeholder}" onchange="updateField('${rec.id}','${key}',this.value)">`;
 }
 
+
+// Catch anyone added before this ran, or added outside the interface.
+async function backfillLeaveSeeds(){
+  if(!EMP201 || !EMP201.length) return;
+  const { data } = await sb.from('leave_balances').select('employee_id,leave_type');
+  const have = {};
+  (data || []).forEach(function(r){ have[r.employee_id + '|' + r.leave_type] = true; });
+  const rows = [];
+  EMP201.forEach(function(e){
+    if(!e.start_date || e.status !== 'Active') return;
+    ['Annual Leave','Personal Leave'].forEach(function(tp){
+      if(!have[e.id + '|' + tp]) rows.push({ employee_id: e.id, leave_type: tp, seed_balance: 0, seed_date: e.start_date });
+    });
+  });
+  if(!rows.length) return;
+  const ins = await sb.from('leave_balances').insert(rows);
+  if(!ins.error && typeof loadLeaveBalances === 'function') await loadLeaveBalances();
+}
+// Give an employee opening leave balances the first time they get a start date.
+async function ensureLeaveSeed(rec){
+  if(!rec || !rec.start_date) return;
+  const { data, error } = await sb.from('leave_balances').select('id,leave_type').eq('employee_id', rec.id);
+  if(error) return;
+  const have = (data || []).map(function(r){ return r.leave_type; });
+  const want = ['Annual Leave','Personal Leave'].filter(function(tp){ return have.indexOf(tp) === -1; });
+  if(!want.length) return;
+  const rows = want.map(function(tp){
+    return { employee_id: rec.id, leave_type: tp, seed_balance: 0, seed_date: rec.start_date };
+  });
+  const ins = await sb.from('leave_balances').insert(rows);
+  if(!ins.error && typeof loadLeaveBalances === 'function') await loadLeaveBalances();
+}
 async function updateField(id, key, val){
   const rec = EMP201.find(r => r.id === id);
   if(!rec) return;
   rec[key] = val;
   const { error } = await sb.from('employees_201').update({ [key]: val || null }).eq('id', id);
+  if(key === 'start_date' && val) await ensureLeaveSeed(rec);
   if(error){ alert('Could not save change: ' + error.message); return; }
   if(key === 'status' || key === 'name') render();
   if(key === 'status' || key === 'sss_enrolled') renderKpis();
@@ -4767,6 +4800,7 @@ async function openOnActivePeriod(){
   if(typeof ovLoaded !== 'undefined' && ovLoaded && typeof renderOverview === 'function') renderOverview();
 }
 setTimeout(openOnActivePeriod, 900);
+setTimeout(function(){ if(typeof backfillLeaveSeeds === "function") backfillLeaveSeeds(); }, 2200);
 
 initMonthPickers();
 setTimeout(function(){ if(!ovLoaded) loadOverviewData(); }, 1200);
