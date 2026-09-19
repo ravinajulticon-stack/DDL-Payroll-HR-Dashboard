@@ -3458,7 +3458,7 @@ function renderOverview(){
   var nowTiles = ''
     + ovTile('Monthly Run Rate', "₱" + fmtMoney(run.php), run.headcount + ' active \u00b7 ' + run.usdCount + ' USD, ' + run.phpCount + ' PHP', 'accent')
     + ovTile('Loans Outstanding', (loans.php ? "₱" + fmtMoney(loans.php) : (loans.usd ? '$' + fmtMoney(loans.usd) : "—")), loans.count + ' active loan' + (loans.count!==1?'s':'') + (loans.php && loans.usd ? ' \u00b7 $' + fmtMoney(loans.usd) : ''))
-    + ovTile('Next VIC Holiday', hol ? (hol.days === 0 ? 'Today' : hol.days + ' day' + (hol.days!==1?'s':'')) : "—", hol ? hol.name + ' \u00b7 ' + hol.date : 'None scheduled', hol && hol.days <= 7 ? 'warn' : '')
+    + ovTile('Next VIC Holiday', hol ? (hol.days === 0 ? 'Today' : hol.days + ' Day' + (hol.days!==1?'s':'')) : "—", hol ? hol.name + ' \u00b7 ' + hol.date : 'None scheduled', hol && hol.days <= 7 ? 'warn' : '')
     + ovTile('Upcoming Exits', exits.length ? String(exits.length) : 'None', exits.length ? exits.slice(0,2).map(function(e){ return e.name.split(' ')[0] + ' ' + e.exit_date; }).join(' \u00b7 ') : 'No scheduled departures', exits.length ? 'warn' : 'ok');
 
   c.innerHTML = ''
