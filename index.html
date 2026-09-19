@@ -2863,6 +2863,56 @@ async function downloadAllPayslips(){
 
 
 
+
+/* Work out which pay period still needs work, and open the dashboard there. */
+let ACTIVE_PERIOD = MIN_OPEN_PERIOD;
+let LAST_CLOSED_PERIOD = null;
+let periodsResolved = false;
+
+function periodPlus(periodStr, n){
+  var p = periodStr.split('-').map(Number);
+  var m = p[1] - 1 + n;
+  var y = p[0] + Math.floor(m/12);
+  return y + '-' + String((m%12+12)%12 + 1).padStart(2,'0');
+}
+
+// Headcount expected in a period: anyone who had not already left before it began.
+function headcountFor(periodStr){
+  var p = periodStr.split('-').map(Number);
+  var sm = p[1]-1, sy = p[0];
+  if(sm <= 0){ sm = 12; sy -= 1; }
+  var start = sy + '-' + String(sm).padStart(2,'0') + '-11';
+  return EMP201.filter(function(e){ return !(e.exit_date && e.exit_date < start); }).length;
+}
+
+async function resolveActivePeriod(){
+  var res = await sb.from('pay202_snapshots').select('period_month,is_paid').eq('is_paid', true);
+  var paid = (res.error ? [] : (res.data || []));
+  var byPeriod = {};
+  paid.forEach(function(s){
+    var k = String(s.period_month).slice(0,7);
+    byPeriod[k] = (byPeriod[k] || 0) + 1;
+  });
+  // Walk forward from the first open period until one isn't fully settled.
+  var p = MIN_OPEN_PERIOD;
+  var lastClosed = null;
+  for(var i = 0; i < 60; i++){
+    var need = headcountFor(p);
+    var got = byPeriod[p] || 0;
+    if(need > 0 && got >= need){ lastClosed = p; p = periodPlus(p, 1); }
+    else break;
+  }
+  ACTIVE_PERIOD = p;
+  LAST_CLOSED_PERIOD = lastClosed;
+  periodsResolved = true;
+
+  tsSelectedPeriod = p;
+  pay202SelectedPeriod = p;
+  leaveSelectedPeriod = p;
+  if(typeof ovPeriod !== 'undefined') ovPeriod = p;
+  if(typeof payslipPeriod !== 'undefined') payslipPeriod = lastClosed || p;
+  return p;
+}
 /* OVERVIEW */
 let ovPeriod = MIN_OPEN_PERIOD;
 let OV_HISTORY = [];
@@ -3961,6 +4011,23 @@ function render(){
   `).join('');
 }
 
+
+// Open on the pay period that still needs work.
+async function openOnActivePeriod(){
+  if(!EMP201 || !EMP201.length){ setTimeout(openOnActivePeriod, 500); return; }
+  await resolveActivePeriod();
+  ['tsGridPeriodInput','pay202PeriodInput','leavePeriodInput','ovPeriodInput','payslipPeriodInput'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(!el) return;
+    el.value = (id === 'payslipPeriodInput') ? (LAST_CLOSED_PERIOD || ACTIVE_PERIOD) : ACTIVE_PERIOD;
+  });
+  if(typeof syncMonthPickerLabels === 'function') syncMonthPickerLabels();
+  if(typeof renderTimesheetGrid === 'function') renderTimesheetGrid();
+  if(typeof loadPay202EburyRate === 'function') loadPay202EburyRate();
+  if(typeof renderLeaveBalancesPanel === 'function'){ renderLeaveBalancesPanel(); renderLeavePanel(); renderVicHolidaysPanel(); }
+  if(typeof ovLoaded !== 'undefined' && ovLoaded && typeof renderOverview === 'function') renderOverview();
+}
+setTimeout(openOnActivePeriod, 900);
 
 initMonthPickers();
 setTimeout(function(){ if(!ovLoaded) loadOverviewData(); }, 1200);
