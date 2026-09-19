@@ -1031,7 +1031,7 @@ let historyEmployeeFilter = '';
 let historyYearFilter = '2026';
 let historyPeriodFilter = '';
 let pay202SelectedPeriod = '2026-09';
-let pay202StatusFilter = 'Active';
+let pay202StatusFilter = '';   // period + exit-date rules decide who appears, not current status
 let filterDept = '';
 let filterRole = '';
 let filterStatus = 'Active';
@@ -1515,7 +1515,7 @@ function fmtPeriodLabel(periodMonthStr){
 ══════════════════════════════════════ */
 let TIMESHEET_ENTRIES = [];
 let tsSelectedPeriod = '2026-09';
-let tsStatusFilter = 'Active';
+let tsStatusFilter = '';   // show everyone who worked in the period; the exit-date rule handles the rest
 
 async function loadTimesheetEntries(){
   const container = document.getElementById('timesheetBody');
