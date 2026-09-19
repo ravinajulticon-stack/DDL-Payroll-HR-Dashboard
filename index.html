@@ -3324,6 +3324,70 @@ function ovTrendOpen(i){
 
 // Composition of the selected period, as a donut.
 // Composition of the selected period as a slim 100% stacked bar.
+function ovSeries(){
+  var by = {}, heads = {};
+  OV_HISTORY.forEach(function(r){
+    var k = r.pay_date;
+    if(!by[k]){ by[k] = { total:0, th:0, maxi:0, sss:0, loan:0 }; heads[k] = 0; }
+    by[k].total += parseFloat(r.total_payout)||0;
+    by[k].th    += parseFloat(r.thirteenth_php)||0;
+    by[k].maxi  += parseFloat(r.maxicare_php)||0;
+    by[k].sss   += parseFloat(r.sss_php)||0;
+    by[k].loan  += Math.abs(parseFloat(r.loan_php)||0);
+    heads[k] += 1;
+  });
+  var MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return Object.keys(by).sort().slice(-12).map(function(k){
+    var b = by[k], n = heads[k] || 1;
+    return { mon: MN[parseInt(k.slice(5,7))-1], yr: k.slice(2,4), period: k.slice(0,7),
+             total: b.total, perHead: b.total/n, heads: n, ded: b.maxi + b.sss + b.loan, th: b.th };
+  });
+}
+
+function ovSpark(vals, labels, colour, fmtFn){
+  if(!vals.length) return '';
+  var max = Math.max.apply(null, vals) || 1;
+  var w = 320, h = 74, padB = 16, n = vals.length, slot = w / n, bw = Math.min(slot*0.58, 20);
+  return '<svg viewBox="0 0 ' + w + ' ' + h + '" class="ov-spark">' + vals.map(function(v, i){
+    var bh = (h - padB) * (v / max);
+    var x = i*slot + (slot-bw)/2, y = h - padB - bh;
+    var last = i === n-1;
+    return '<rect x="' + x + '" y="' + y + '" width="' + bw + '" height="' + Math.max(bh,1.5) + '" rx="2" fill="' + colour + '" opacity="' + (last ? 1 : 0.3) + '">'
+      + '<title>' + labels[i] + ': ' + fmtFn(v) + '</title></rect>'
+      + (last ? '<text x="' + (x+bw/2) + '" y="' + (h-4) + '" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.5">' + labels[i] + '</text>' : '');
+  }).join('') + '</svg>';
+}
+
+function ovPanel(label, value, delta, chart, tone){
+  return '<div class="ov-panel"><div class="ov-panel-lbl">' + label + '</div>'
+    + '<div class="ov-panel-row"><span class="ov-panel-val">' + value + '</span>'
+    + (delta ? '<span class="ov-panel-delta ' + (tone||'') + '">' + delta + '</span>' : '') + '</div>'
+    + chart + '</div>';
+}
+
+function ovAnalytics(){
+  var S = ovSeries();
+  if(!S.length) return '<div class="ov-mix-empty">No payroll history yet.</div>';
+  var labels = S.map(function(d){ return d.mon + " '" + d.yr; });
+  var money = function(v){ return "₱" + fmtMoney(v); };
+  var last = S[S.length-1], prev = S.length > 1 ? S[S.length-2] : null;
+  function tag(a, b, invert){
+    if(!b) return { txt:'', tone:'' };
+    var p = (a-b)/b*100, up = p >= 0;
+    return { txt: (up?'\u25b2 ':'\u25bc ') + Math.abs(p).toFixed(1) + '%', tone: (invert ? !up : up) ? 'warn' : 'ok' };
+  }
+  var t1 = tag(last.total, prev && prev.total);
+  var t2 = tag(last.perHead, prev && prev.perHead);
+  var t3 = tag(last.heads, prev && prev.heads, true);
+  var t4 = tag(last.ded, prev && prev.ded);
+  return '<div class="ov-panels">'
+    + ovPanel('Total payout', money(last.total), t1.txt, ovSpark(S.map(function(d){return d.total;}), labels, '#007aff', money), t1.tone)
+    + ovPanel('Cost per employee', money(last.perHead), t2.txt, ovSpark(S.map(function(d){return d.perHead;}), labels, '#34c759', money), t2.tone)
+    + ovPanel('Headcount paid', String(last.heads), t3.txt, ovSpark(S.map(function(d){return d.heads;}), labels, '#5e5ce6', function(v){ return v + ' paid'; }), t3.tone)
+    + ovPanel('Deductions and benefits', money(last.ded), t4.txt, ovSpark(S.map(function(d){return d.ded;}), labels, '#ff9500', money), t4.tone)
+    + '</div>' + ovMixChart();
+}
+
 function ovMixChart(){
   var st = ovPeriodStats(ovPeriod);
   var basePhp = Math.max(0, st.payout - st.maxicare - st.sss - st.thirteenth - st.loan);
