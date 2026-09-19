@@ -910,7 +910,6 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
 
   <!-- OVERVIEW -->
   <div id="overviewView">
-    <div class="kpi-strip" id="kpiStrip"></div>
     <div id="overviewBody"></div>
   </div>
 
@@ -1127,6 +1126,7 @@ function switchView(view, btn){
 }
 
 function renderKpis(){
+  if(!document.getElementById('kpiStrip')) return;   // strip removed from the Overview
   const total = EMP201.length;
   const active = EMP201.filter(r => r.status === 'Active').length;
   const resigned = EMP201.filter(r => r.status === 'Resigned').length;
@@ -3033,6 +3033,24 @@ function ovLeaveLiability(){
   return { php: php, usd: usd };
 }
 
+// What payroll costs per period at today's rates and headcount.
+function ovRunRate(){
+  var rate = pay202EburyRate;
+  if(!rate){
+    var known = OV_RATES.filter(function(x){ return x.ebury_rate != null; })
+      .sort(function(a,b){ return String(b.period_month).localeCompare(String(a.period_month)); });
+    if(known.length) rate = parseFloat(known[0].ebury_rate);
+  }
+  var usd = 0, php = 0, n = 0;
+  EMP201.filter(function(e){ return e.status === 'Active'; }).forEach(function(e){
+    var b = parseFloat(e.basic_pay_rate) || 0;
+    if(!b) return;
+    n++;
+    if(e.currency === 'USD') usd += b; else php += b;
+  });
+  return { php: php + (rate ? usd * rate : 0), usdCount: EMP201.filter(function(e){ return e.status==='Active' && e.currency==='USD'; }).length, phpCount: EMP201.filter(function(e){ return e.status==='Active' && e.currency!=='USD'; }).length, headcount: n };
+}
+
 function ovNextHoliday(){
   var now = new Date();
   var todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
@@ -3255,7 +3273,9 @@ function renderOverview(){
     + ovTile('Maxicare to Remit', st.maxicare ? "₱" + fmtMoney(st.maxicare) : "—", 'Quarterly per employee')
     + ovTile('13th Month Accrued', st.thirteenth ? "₱" + fmtMoney(st.thirteenth) : "—", 'Mar / Jun / Sep / Dec');
 
+  var run = ovRunRate();
   var nowTiles = ''
+    + ovTile('Monthly Run Rate', "₱" + fmtMoney(run.php), run.headcount + ' active \u00b7 ' + run.usdCount + ' USD, ' + run.phpCount + ' PHP', 'accent')
     + ovTile('Loans Outstanding', (loans.php ? "₱" + fmtMoney(loans.php) : (loans.usd ? '$' + fmtMoney(loans.usd) : "—")), loans.count + ' active loan' + (loans.count!==1?'s':'') + (loans.php && loans.usd ? ' \u00b7 $' + fmtMoney(loans.usd) : ''))
     + ovTile('Leave Liability', "₱" + fmtMoney(liab.php + (rate ? liab.usd * rate : 0)), 'Annual Leave owed if all staff exited today')
     + ovTile('Next VIC Holiday', hol ? (hol.days === 0 ? 'Today' : hol.days + ' day' + (hol.days!==1?'s':'')) : "—", hol ? hol.name + ' \u00b7 ' + hol.date : 'None scheduled', hol && hol.days <= 7 ? 'warn' : '')
