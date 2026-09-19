@@ -907,7 +907,7 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
     <button class="seg-btn" onclick="switchView('pay202',this)"><span class="seg-txt">Employee 202</span><span class="seg-ic"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3.5" width="12" height="9" rx="1.5"/><circle cx="8" cy="8" r="2"/></svg></span></button>
     <button class="seg-btn" onclick="switchView('leave',this)"><span class="seg-txt">Employee 203</span><span class="seg-ic"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.2" y="3.2" width="11.6" height="10.6" rx="1.5"/><path d="M2.2 6.4h11.6M5.5 1.8v2.6M10.5 1.8v2.6" stroke-linecap="round"/></svg></span></button>
         <button class="seg-btn" onclick="switchView('loans',this)"><span class="seg-txt">Employee 204</span><span class="seg-ic"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1.8" y="4" width="12.4" height="8.6" rx="1.5"/><path d="M1.8 7h12.4" stroke-linecap="round"/></svg></span></button>
-    <button class="seg-btn" onclick="switchView('history',this)"><span class="seg-txt">Employee 500</span><span class="seg-ic"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 5.2h11v7.3a1.2 1.2 0 0 1-1.2 1.2H3.7a1.2 1.2 0 0 1-1.2-1.2z"/><rect x="1.6" y="2.3" width="12.8" height="2.9" rx="1"/><path d="M6.4 8.3h3.2" stroke-linecap="round"/></svg></span></button>
+    <button class="seg-btn" onclick="switchView('history',this)"><span class="seg-txt">Employee 205</span><span class="seg-ic"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2.5 5.2h11v7.3a1.2 1.2 0 0 1-1.2 1.2H3.7a1.2 1.2 0 0 1-1.2-1.2z"/><rect x="1.6" y="2.3" width="12.8" height="2.9" rx="1"/><path d="M6.4 8.3h3.2" stroke-linecap="round"/></svg></span></button>
         <button class="seg-btn" onclick="switchView('payslip',this)"><span class="seg-txt">Payslip</span><span class="seg-ic"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3.6 1.9h8.8v12.2l-1.8-1.1-1.8 1.1-1.6-1.1-1.8 1.1-1.8-1.1z"/><path d="M6 5.4h4M6 8.3h4" stroke-linecap="round"/></svg></span></button>
   </div>
   <div class="toolbar-sep"></div>
@@ -1355,7 +1355,7 @@ function fmtMoney(n){
   return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Employee 500 only: whole numbers stay whole, but any number with a fraction always
+// Employee 205 only: whole numbers stay whole, but any number with a fraction always
 // shows exactly 2 decimals (e.g. 47596.1 -> "47,596.10", not "47,596.1").
 function fmtMoneyHistory(n){
   if(n === '' || n === null || n === undefined) return '';
@@ -1595,7 +1595,7 @@ function renderHistory(){
 function empById(id){ return EMP201.find(e => e.id === id); }
 function empName(id){ const e = empById(id); return e ? e.name : '(unknown employee)'; }
 
-// Most recent Employee 500 record for a given employee name, or null if they have no history yet.
+// Most recent Employee 205 record for a given employee name, or null if they have no history yet.
 function latestHistoryFor(employeeName){
   let latest = null;
   for(const r of HISTORY500){
@@ -3428,7 +3428,7 @@ function ovTile(label, value, sub, tone){
     + '</div>';
 }
 
-// Monthly payout trend from Employee 500, drawn as inline SVG bars.
+// Monthly payout trend from Employee 205, drawn as inline SVG bars.
 undefined
 
 
@@ -3798,7 +3798,7 @@ async function loadPay202Snapshots(){
   else PAY202_SNAPSHOTS = [];
 }
 
-// Write a finalised Employee 202 row into the permanent Employee 500 history.
+// Write a finalised Employee 202 row into the permanent Employee 205 history.
 async function syncToEmployee500(emp, d, periodStr){
   var parts = periodStr.split('-').map(Number);
   var payDate = parts[0] + '-' + String(parts[1]).padStart(2,'0') + '-15';
@@ -3831,11 +3831,11 @@ async function syncToEmployee500(emp, d, periodStr){
   };
   await sb.from('employee_500').delete().eq('employee_name', emp.name).eq('pay_date', payDate);
   const { error } = await sb.from('employee_500').insert(row);
-  if(error){ alert('Saved as paid, but could not write to Employee 500: ' + error.message); return; }
+  if(error){ alert('Saved as paid, but could not write to Employee 205: ' + error.message); return; }
   await loadHistory();
 }
 
-// Remove the Employee 500 record when a row is unlocked.
+// Remove the Employee 205 record when a row is unlocked.
 async function removeFromEmployee500(emp, periodStr){
   var parts = periodStr.split('-').map(Number);
   var payDate = parts[0] + '-' + String(parts[1]).padStart(2,'0') + '-15';
