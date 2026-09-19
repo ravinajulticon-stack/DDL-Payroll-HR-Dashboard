@@ -3258,6 +3258,58 @@ undefined
 
 
 
+function ovTrendChart(){
+  var by = {};
+  OV_HISTORY.forEach(function(r){
+    var k = r.pay_date;
+    if(!by[k]) by[k] = { total:0, th:0, maxi:0, sss:0, loan:0 };
+    by[k].total += parseFloat(r.total_payout)||0;
+    by[k].th    += parseFloat(r.thirteenth_php)||0;
+    by[k].maxi  += parseFloat(r.maxicare_php)||0;
+    by[k].sss   += parseFloat(r.sss_php)||0;
+    by[k].loan  += Math.abs(parseFloat(r.loan_php)||0);
+  });
+  var keys = Object.keys(by).sort().slice(-12);
+  if(!keys.length) return '<p style="padding:14px;color:var(--text-3);font-size:12px">No payroll history yet.</p>';
+  var series = [
+    { key:'total', name:'Total payout', colour:'#007aff', width:2.4 },
+    { key:'th',    name:'13th month',   colour:'#af52de', width:1.6 },
+    { key:'maxi',  name:'Maxicare',     colour:'#34c759', width:1.6 },
+    { key:'sss',   name:'SSS',          colour:'#ff9500', width:1.6 },
+    { key:'loan',  name:'Loans',        colour:'#ff3b30', width:1.6 }
+  ].filter(function(s){ return keys.some(function(k){ return by[k][s.key] > 0; }); });
+  var max = 0;
+  keys.forEach(function(k){ series.forEach(function(s){ if(by[k][s.key] > max) max = by[k][s.key]; }); });
+  if(!max) max = 1;
+  var MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var w = 1000, h = 180, padL = 46, padR = 14, padT = 12, padB = 26;
+  var plotW = w - padL - padR, plotH = h - padT - padB;
+  var xFor = function(i){ return keys.length === 1 ? padL + plotW/2 : padL + plotW * i / (keys.length - 1); };
+  var yFor = function(v){ return padT + plotH - plotH * (v / max); };
+  var grid = '';
+  for(var g = 0; g <= 3; g++){
+    var gv = max * g / 3, gy = yFor(gv);
+    grid += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (w-padR) + '" y2="' + gy + '" stroke="currentColor" stroke-opacity="0.08"/>'
+      + '<text x="' + (padL-8) + '" y="' + (gy+3) + '" text-anchor="end" font-size="9" fill="currentColor" opacity="0.38">' + Math.round(gv/1000) + 'k</text>';
+  }
+  var xLabels = keys.map(function(k, i){
+    var m = parseInt(k.slice(5,7));
+    return '<text x="' + xFor(i) + '" y="' + (h-9) + '" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.42">' + MN[m-1] + '</text>';
+  }).join('');
+  var lines = series.map(function(s){
+    var pts = keys.map(function(k, i){ return xFor(i) + ',' + yFor(by[k][s.key]); }).join(' ');
+    var dots = keys.map(function(k, i){
+      return '<circle cx="' + xFor(i) + '" cy="' + yFor(by[k][s.key]) + '" r="2.8" fill="#fff" stroke="' + s.colour + '" stroke-width="1.8">'
+        + '<title>' + s.name + ' \u2014 ' + MN[parseInt(k.slice(5,7))-1] + ' ' + k.slice(0,4) + ': ' + "₱" + fmtMoney(by[k][s.key]) + '</title></circle>';
+    }).join('');
+    return '<polyline points="' + pts + '" fill="none" stroke="' + s.colour + '" stroke-width="' + s.width + '" stroke-linejoin="round" stroke-linecap="round"/>' + dots;
+  }).join('');
+  var legend = '<div class="ov-legend">' + series.map(function(s){
+    return '<span class="ov-leg"><i style="background:' + s.colour + '"></i>' + s.name + '</span>';
+  }).join('') + '</div>';
+  return legend + '<div class="ov-trend-wrap"><svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;color:var(--text-2)">'
+    + grid + xLabels + lines + '</svg></div>';
+}
 function renderOverview(){
   var c = document.getElementById('overviewBody');
   if(!c) return;
