@@ -4419,11 +4419,13 @@ function renderPay202(){
   if(p202SM <= 0){ p202SM += 12; p202SY -= 1; }
   const p202PeriodStart = `${p202SY}-${String(p202SM).padStart(2,'0')}-11`;
   const p202PeriodEnd = `${pay202SelectedPeriod}-10`;
+  const p202PeriodEnd = `${pay202SelectedPeriod}-10`;
 
   const employees = EMP201
     .filter(e => {
       // Always hide employees who exited before this period started
       if(e.exit_date && e.exit_date < p202PeriodStart) return false;
+      if(e.start_date && e.start_date > p202PeriodEnd) return false;
       // and hide anyone who had not started by the period end
       if(e.start_date && e.start_date > p202PeriodEnd) return false;
       return !pay202StatusFilter || e.status === pay202StatusFilter || exitFallsInPeriod(e, pay202SelectedPeriod) || PAY202_SNAPSHOTS.some(s => s.employee_id === e.id && s.is_paid);
