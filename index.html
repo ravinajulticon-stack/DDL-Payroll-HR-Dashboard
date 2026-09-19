@@ -614,6 +614,12 @@ body {
 .prev-delta{ font-size:10.5px; font-weight:700; }
 .prev-delta.up{ color:#a35b00; }
 .prev-delta.down{ color:#1e7a35; }
+/* previous pay run: read-only mirror of the Employee 202 table */
+.pay202-table.prev-run td{ color:var(--text-2); height:38px; }
+.pay202-table.prev-run tbody tr{ height:38px; }
+.pay202-table.prev-run td.ptxt{ font-size:10.5px; color:var(--text-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pay202-table.prev-run td.ppaid{ color:var(--green); font-weight:700; text-align:center; }
+.pay202-table.prev-run tbody tr:hover td{ background:rgba(0,0,0,0.02); }
 .ov-panels{ display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:1px; background:var(--border); border-top:1px solid var(--border); }
 .ov-panel{ background:var(--surface-1); padding:13px 15px 8px; }
 .ov-panel-lbl{ font-size:9.5px; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-3); font-weight:600; }
