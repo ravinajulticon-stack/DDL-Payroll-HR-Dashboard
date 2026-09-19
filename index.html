@@ -3496,6 +3496,7 @@ async function loadPay202EburyRate(){
   pay202AudRate = (data && data.aud_rate != null) ? parseFloat(data.aud_rate) : null;
   await loadPay202Entries();
   await loadPay202Snapshots();
+  renderPay202();   // snapshots decide the Paid state, so redraw once they're in
 }
 
 // Per-employee, per-period manual figures (Double Pay, Others, Bank Fees, 13th, Other PHP, Note).
