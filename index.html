@@ -709,8 +709,9 @@ body {
 .lv-cal-table{ width:100%; border-collapse:collapse; table-layout:fixed; }
 .lv-cal-table th{ background:var(--surface-2); color:var(--text-2); font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; text-align:center; padding:7px 4px; border:0.5px solid var(--border); }
 .lv-cal-cell{ border:0.5px solid var(--border); vertical-align:top; padding:4px 5px 5px; background:var(--surface-1); height:82px; overflow:hidden; }
-.lv-cal-cell.wknd{ background:var(--surface-2); }
-.lv-cal-cell.oob{ background:var(--surface-2); opacity:0.45; }
+.lv-cal-cell.wknd{ background:#fbfbfd; }
+.lv-cal-cell.oob{ background:repeating-linear-gradient(135deg, #f4f4f7, #f4f4f7 6px, #eeeef3 6px, #eeeef3 12px); }
+.lv-cal-cell.oob .lv-cal-day{ color:#b9b9c0; font-weight:500; }
 .lv-cal-day{ font-size:11px; font-weight:600; color:var(--text-2); text-align:right; margin-bottom:3px; }
 .lv-entry{ font-size:10px; padding:2px 5px; border-radius:3px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:default; }
 .lv-entry.al{ background:rgba(10,132,255,0.18); color:#0056b3; }
