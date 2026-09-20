@@ -643,6 +643,8 @@ body {
 .loc-grp.luzon{ background:rgba(0,122,255,0.12); color:#0056b3; }
 .loc-grp.visayas{ background:rgba(52,199,89,0.14); color:#1e7a35; }
 .loc-grp.mindanao{ background:rgba(255,149,0,0.14); color:#a35b00; }
+.loc-reset{ color:var(--blue); text-decoration:none; font-weight:600; }
+.loc-reset:hover{ text-decoration:underline; }
 .loc-pin-label span{ position:absolute; left:12px; top:-7px; white-space:nowrap; font-size:10px; font-weight:700; color:var(--text); background:rgba(255,255,255,0.88); padding:1px 5px; border-radius:4px; box-shadow:0 1px 2px rgba(0,0,0,0.15); pointer-events:none; }
 .loc-count span{ display:flex; align-items:center; justify-content:center; width:20px; height:20px; font-size:11px; font-weight:800; color:#fff; }
 .leaflet-container{ font-family:inherit; }
@@ -3150,6 +3152,26 @@ function renderLocator(){
   drawPhMap(staff);
 }
 
+const PH_BOUNDS = [[4.9,117.0],[19.4,126.4]];
+let locFocused = null;
+
+// Click a pin to zoom to that city, click it again to return to the whole country.
+function locFocus(lat, lng){
+  if(!locMap) return;
+  var key = lat + ',' + lng;
+  if(locFocused === key){
+    locFocused = null;
+    locMap.flyToBounds(PH_BOUNDS, { padding:[6,6], duration:0.6 });
+  } else {
+    locFocused = key;
+    locMap.flyTo([lat, lng], 11, { duration:0.7 });
+  }
+}
+
+function locResetView(){
+  locFocused = null;
+  if(locMap) locMap.flyToBounds(PH_BOUNDS, { padding:[6,6], duration:0.6 });
+}
 function drawPhMap(staff){
   var el = document.getElementById('phMap');
   if(!el || typeof window.L === 'undefined') return;
@@ -3208,9 +3230,11 @@ function drawPhMap(staff){
           radius: 9, fillColor: colour, color:'#fff', weight:2, opacity:1, fillOpacity:0.92
         }).addTo(layer);
         mk.bindTooltip('<b>' + it.city + '</b><br>' + it.names.join('<br>'), { direction:'top' });
+        // click a pin to zoom to that city; click again to go back
+        mk.on('click', function(){ locFocus(it.lat, it.lng); });
         window.L.marker(ll, {
           icon: window.L.divIcon({ className:'loc-pin-label', html:'<span>' + it.city + (it.names.length>1 ? ' \u00b7 ' + it.names.length : '') + '</span>', iconSize:[0,0] })
-        }).addTo(layer).bindTooltip('<b>' + it.city + '</b><br>' + it.names.join('<br>'), { direction:'top' });
+        }).addTo(layer).bindTooltip('<b>' + it.city + '</b><br>' + it.names.join('<br>'), { direction:'top' }).on('click', function(){ locFocus(it.lat, it.lng); });
       });
     });
   }
