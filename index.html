@@ -4366,7 +4366,7 @@ function pay202NoteCell(employeeId, field){
   const _k = field || 'note';
   const val = (e && e[_k] ? e[_k] : '').toString().replace(/"/g,'&quot;');
   return `<input type="text" class="pay202-input pay202-note" value="${val}" placeholder="\u2014"
-    onchange="savePay202Entry('${employeeId}',(field || 'note'),this.value)"
+    onchange="savePay202Entry('${employeeId}','${_k}',this.value)"
     onkeydown="if(event.key==='Enter') this.blur()">`;
 }
 
