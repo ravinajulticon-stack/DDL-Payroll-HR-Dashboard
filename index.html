@@ -1755,6 +1755,8 @@ document.getElementById('tsStatusFilter').addEventListener('change', (e) => {
   tsStatusFilter = e.target.value; renderTimesheetGrid();
 });
 
+function fmt2(el){ if(el && el.value !== "") el.value = Number(el.value).toFixed(2); }
+
 function fmtHrs(n){
   const rounded = Math.round(n * 100) / 100;
   if(rounded === 0) return '\u2014';
@@ -2918,7 +2920,7 @@ function renderLoansPanel(){
     +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Loan Name</label>'
     +       '<input type="text" class="search-box" id="loanNameInput" placeholder="e.g. Laptop Loan" style="width:170px"></div>'
     +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Amount</label>'
-    +       '<input type="number" step="0.01" class="search-box" id="loanPrincipalInput" placeholder="0.00" style="width:110px" onblur="this.value = this.value === '' ? '' : Number(this.value).toFixed(2)"></div>'
+    +       '<input type="number" step="0.01" class="search-box" id="loanPrincipalInput" placeholder="0.00" style="width:110px" onblur="fmt2(this)"></div>'
     +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Currency</label>'
     +       '<select class="search-box" id="loanCurrencySelect" style="width:80px"><option value="PHP">PHP</option><option value="USD">USD</option></select></div>'
     +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Installments</label>'
