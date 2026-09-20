@@ -3240,7 +3240,7 @@ function drawPhMap(staff){
         // click a pin to zoom to that city; click again to go back
         mk.on('click', function(){ locFocus(it.lat, it.lng); });
         window.L.marker(ll, {
-          icon: window.L.divIcon({ className:'loc-pin-label', html:'<span><b>' + it.city + '</b> ' + locWho(it.names) + '</span>', iconSize:[0,0] })
+          icon: window.L.divIcon({ className:'loc-pin-label', html:'<span><b>' + it.city + '</b> \u2014 ' + locWho(it.names) + '</span>', iconSize:[0,0] })
         }).addTo(layer).bindTooltip('<b>' + it.city + '</b><br>' + it.names.join('<br>'), { direction:'top' }).on('click', function(){ locFocus(it.lat, it.lng); });
       });
     });
