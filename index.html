@@ -645,7 +645,8 @@ body {
 .loc-grp.mindanao{ background:rgba(255,149,0,0.14); color:#a35b00; }
 .loc-reset{ color:var(--blue); text-decoration:none; font-weight:600; }
 .loc-reset:hover{ text-decoration:underline; }
-.loc-pin-label span{ position:absolute; left:12px; top:-7px; white-space:nowrap; font-size:10px; font-weight:700; color:var(--text); background:rgba(255,255,255,0.88); padding:1px 5px; border-radius:4px; box-shadow:0 1px 2px rgba(0,0,0,0.15); pointer-events:none; }
+.loc-pin-label span b{ font-weight:800; }
+.loc-pin-label span{ font-weight:500;  position:absolute; left:12px; top:-7px; white-space:nowrap; font-size:10px; font-weight:700; color:var(--text); background:rgba(255,255,255,0.88); padding:1px 5px; border-radius:4px; box-shadow:0 1px 2px rgba(0,0,0,0.15); pointer-events:none; }
 .loc-count span{ display:flex; align-items:center; justify-content:center; width:20px; height:20px; font-size:11px; font-weight:800; color:#fff; }
 .leaflet-container{ font-family:inherit; }
 .ov-panels{ display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:1px; background:var(--border); border-top:1px solid var(--border); }
@@ -3156,6 +3157,12 @@ const PH_BOUNDS = [[4.9,117.0],[19.4,126.4]];
 let locFocused = null;
 
 // Click a pin to zoom to that city, click it again to return to the whole country.
+// First names for the map label; keeps pins readable when several share a city.
+function locWho(names){
+  var first = names.map(function(n){ return n.split(' ')[0]; });
+  if(first.length <= 2) return first.join(', ');
+  return first.slice(0,2).join(', ') + ' +' + (first.length - 2);
+}
 function locFocus(lat, lng){
   if(!locMap) return;
   var key = lat + ',' + lng;
@@ -3233,7 +3240,7 @@ function drawPhMap(staff){
         // click a pin to zoom to that city; click again to go back
         mk.on('click', function(){ locFocus(it.lat, it.lng); });
         window.L.marker(ll, {
-          icon: window.L.divIcon({ className:'loc-pin-label', html:'<span>' + it.city + (it.names.length>1 ? ' \u00b7 ' + it.names.length : '') + '</span>', iconSize:[0,0] })
+          icon: window.L.divIcon({ className:'loc-pin-label', html:'<span><b>' + it.city + '</b> ' + locWho(it.names) + '</span>', iconSize:[0,0] })
         }).addTo(layer).bindTooltip('<b>' + it.city + '</b><br>' + it.names.join('<br>'), { direction:'top' }).on('click', function(){ locFocus(it.lat, it.lng); });
       });
     });
