@@ -3161,16 +3161,16 @@ function locFocus(lat, lng){
   var key = lat + ',' + lng;
   if(locFocused === key){
     locFocused = null;
-    locMap.flyToBounds(PH_BOUNDS, { padding:[6,6], duration:0.6 });
+    locMap.fitBounds(PH_BOUNDS, { padding:[6,6] });
   } else {
     locFocused = key;
-    locMap.flyTo([lat, lng], 11, { duration:0.7 });
+    locMap.setView([lat, lng], 11, { animate:true, duration:0.6 });
   }
 }
 
 function locResetView(){
   locFocused = null;
-  if(locMap) locMap.flyToBounds(PH_BOUNDS, { padding:[6,6], duration:0.6 });
+  if(locMap) locMap.fitBounds(PH_BOUNDS, { padding:[6,6] });
 }
 function drawPhMap(staff){
   var el = document.getElementById('phMap');
