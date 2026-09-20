@@ -1755,7 +1755,11 @@ document.getElementById('tsStatusFilter').addEventListener('change', (e) => {
   tsStatusFilter = e.target.value; renderTimesheetGrid();
 });
 
-function fmt2(el){ if(el && el.value !== "") el.value = Number(el.value).toFixed(2); }
+function fmt2(el){
+  if(!el) return;
+  var n = parseFloat(String(el.value).replace(/,/g, ""));
+  el.value = isNaN(n) ? "" : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 function fmtHrs(n){
   const rounded = Math.round(n * 100) / 100;
@@ -2835,7 +2839,7 @@ function loanDeductionFor(employeeId, periodStr){
 async function addSalaryLoan(){
   var empId = document.getElementById('loanEmployeeSelect').value;
   var name  = document.getElementById('loanNameInput').value.trim();
-  var principal = parseFloat(document.getElementById('loanPrincipalInput').value);
+  var principal = parseFloat(String(document.getElementById('loanPrincipalInput').value).replace(/,/g, ''));
   var cur = document.getElementById('loanCurrencySelect').value;
   var inst = parseInt(document.getElementById('loanInstallmentsInput').value);
   var startP = document.getElementById('loanStartPeriodInput').value;
@@ -2920,7 +2924,7 @@ function renderLoansPanel(){
     +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Loan Name</label>'
     +       '<input type="text" class="search-box" id="loanNameInput" placeholder="e.g. Laptop Loan" style="width:170px"></div>'
     +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Amount</label>'
-    +       '<input type="number" step="0.01" class="search-box" id="loanPrincipalInput" placeholder="0.00" style="width:110px" onblur="fmt2(this)"></div>'
+    +       '<input type="text" inputmode="decimal" class="search-box" id="loanPrincipalInput" placeholder="0.00" style="width:110px" onblur="fmt2(this)"></div>'
     +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Currency</label>'
     +       '<select class="search-box" id="loanCurrencySelect" style="width:80px"><option value="PHP">PHP</option><option value="USD">USD</option></select></div>'
     +     '<div><label class="wk-label" style="display:block;margin-bottom:4px">Installments</label>'
