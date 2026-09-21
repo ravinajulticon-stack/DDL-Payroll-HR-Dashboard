@@ -547,6 +547,10 @@ body {
 .rec-table tr.emp-row-inactive td:first-child{ box-shadow:inset 3px 0 0 #8e8e93; color:var(--text-2); font-weight:600; }
 .rec-table tr.emp-row-inactive input, .rec-table tr.emp-row-inactive select{ color:var(--text-2); }
 .rec-table tr.emp-row-inactive:hover td{ background:rgba(142,142,147,0.17); }
+.doc-link{ color:var(--blue); font-weight:600; font-size:11.5px; text-decoration:none; margin-right:6px; }
+.doc-link:hover{ text-decoration:underline; }
+.doc-none{ color:var(--text-3); margin-right:6px; }
+.doc-input{ width:120px; font-size:11px; }
 .rec-table tr.emp-row-new td{ background:rgba(0,122,255,0.07); }
 .rec-table tr.emp-row-new td:first-child{ box-shadow:inset 3px 0 0 var(--blue); font-weight:700; }
 .rec-table tr.emp-row-new td:first-child::after{ content:"NEW"; margin-left:8px; font-size:8.5px; font-weight:800; letter-spacing:0.5px; color:#fff; background:var(--blue); padding:2px 6px; border-radius:999px; vertical-align:middle; }
@@ -1049,7 +1053,7 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
                 <th>Status</th>
                 <th>Start Date</th><th>Exit Date</th>
                 <th>Leave Payout</th>
-                <th>Work Email Address</th>
+                <th>Work Email Address</th><th>Contract</th>
                 <th>SSS</th>
                 <th>SSS Amount (PHP)</th>
                 <th>HO</th>
@@ -4826,6 +4830,17 @@ function renderPay202(){
 
 
 // True when the employee's start date falls inside the pay period currently being worked on.
+// Link to the employee's contract, stored elsewhere (Drive / SharePoint).
+function contractCell(rec){
+  const url = (rec.contract_url || '').toString().trim();
+  const safe = url.replace(/"/g, '&quot;');
+  const link = url
+    ? `<a href="${safe}" target="_blank" rel="noopener" class="doc-link" title="Open contract">View</a>`
+    : '<span class="doc-none">\u2014</span>';
+  return `${link}<input type="url" class="doc-input" placeholder="Paste link" value="${safe}"
+    onchange="updateField('${rec.id}','contract_url',this.value)">`;
+}
+
 function isNewThisPeriod(rec){
   if(!rec || !rec.start_date) return false;
   var p = (typeof ACTIVE_PERIOD !== 'undefined' && ACTIVE_PERIOD) ? ACTIVE_PERIOD : MIN_OPEN_PERIOD;
@@ -4869,6 +4884,7 @@ function render(){
       <td>${field(rec,'exit_date','','date')}</td>
       <td>${leavePayoutCell(rec)}</td>
       <td>${field(rec,'work_email','name@company.com','email')}</td>
+      <td>${contractCell(rec)}</td>
       <td style="text-align:center"><input type="checkbox" ${rec.sss_enrolled?'checked':''} onchange="toggleSss('${rec.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;min-width:0"></td>
       <td>${moneyField(rec,'sss_amount','Amount')}</td>
       <td style="text-align:center"><input type="checkbox" ${rec.home_office?'checked':''} onchange="toggleHomeOffice('${rec.id}',this.checked)" style="width:16px;height:16px;cursor:pointer;min-width:0"></td>
