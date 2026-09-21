@@ -181,7 +181,10 @@ async function loadMine(){
     document.getElementById('balances').innerHTML = rows.map(function(r){
       var rate = ACCRUAL[r.leave_type] || 0;
       var accrued = (parseFloat(r.seed_balance)||0) + monthsBetween(r.seed_date, today) * rate;
-      var spent = used.filter(function(u){ return u.leave_type === r.leave_type; })
+      // only leave already taken reduces the balance; future bookings shown separately
+      var spent = used.filter(function(u){ return u.leave_type === r.leave_type && u.leave_date <= todayStr; })
+        .reduce(function(a,u){ return a + (parseFloat(u.hours)||0); }, 0);
+      var booked = used.filter(function(u){ return u.leave_type === r.leave_type && u.leave_date > todayStr; })
         .reduce(function(a,u){ return a + (parseFloat(u.hours)||0); }, 0);
       var bal = accrued - spent;
       var cls = r.leave_type === 'Annual Leave' ? 'annual' : 'personal';
@@ -189,7 +192,7 @@ async function loadMine(){
         + '<div class="tile-lbl">' + r.leave_type + '</div>'
         + '<div class="tile-val">' + bal.toFixed(2) + '</div>'
         + '<div class="tile-sub">hours \u00b7 ' + (bal/HOURS_PER_DAY).toFixed(1) + ' days available</div>'
-        + '<div class="tile-sub">' + spent.toFixed(2) + ' hrs taken so far</div>'
+        + '<div class="tile-sub">' + spent.toFixed(2) + ' hrs taken' + (booked ? ' \u00b7 ' + booked.toFixed(2) + ' booked ahead' : '') + '</div>'
         + '</div>';
     }).join('');
   }
