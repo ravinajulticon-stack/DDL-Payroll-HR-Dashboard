@@ -1987,7 +1987,7 @@ function renderTsYearCal(){
   }
   var years = [];
   for(var y = tsycYear - 2; y <= tsycYear + 1; y++) years.push(y);
-  var empOpts = staff.map(function(e){ return '<option value="' + e.id + '"' + (e.id===tsycEmp?' selected':'') + '>' + e.name + '</option>'; }).join('');
+  var empOpts = empOptions(tsycEmp, '');
   var yrOpts = years.map(function(y){ return '<option value="' + y + '"' + (y===tsycYear?' selected':'') + '>' + y + '</option>'; }).join('');
   var boxes = ''
     + '<div class="eyc-count-box" style="border-color:#007aff;background:rgba(0,122,255,0.08)"><div class="eyc-count-val" style="color:#0056b3">' + worked + '</div><div class="eyc-count-lbl">Days worked</div></div>'
@@ -2597,7 +2597,7 @@ function renderEmpYearCalPanel(){
           <div>
             <label>Name</label>
             <select class="search-box" id="eycEmployeeSelect" style="min-width:180px">
-              ${employees.map(e=>`<option value="${e.id}" ${e.id===EYC_SELECTED_EMP?'selected':''}>${e.name}</option>`).join('')}
+              ${empOptions(EYC_SELECTED_EMP, '')}
             </select>
           </div>
           <div>
@@ -3050,7 +3050,7 @@ function renderLoansPanel(){
       + '</tr>';
   }).join('');
 
-  var opts = employees.map(function(e){ return '<option value="' + e.id + '">' + e.name + '</option>'; }).join('');
+  var opts = empOptions('', null);
   var emptyMsg = SALARY_LOANS.length === 0 ? 'No loans recorded yet.' : 'All loans are fully paid.';
   var empty = '<tr><td colspan="10" style="text-align:center;color:var(--text-3);padding:16px">' + emptyMsg + '</td></tr>';
 
@@ -4128,6 +4128,23 @@ function renderOverview(){
   if(typeof attachMonthPicker === 'function') attachMonthPicker('ovPeriodInput');
 }
 
+// Employee dropdown options: active first, leavers grouped under Exited.
+function empOptions(selectedId, placeholder){
+  const active = EMP201.filter(function(e){ return e.status === 'Active'; })
+    .slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
+  const gone = EMP201.filter(function(e){ return e.status && e.status !== 'Active'; })
+    .slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
+  function opt(e){
+    return '<option value="' + e.id + '"' + (e.id === selectedId ? ' selected' : '') + '>' + e.name + '</option>';
+  }
+  var html = placeholder ? '<option value="">' + placeholder + '</option>' : '';
+  html += active.map(opt).join('');
+  if(gone.length){
+    html += '<optgroup label="Exited">' + gone.map(opt).join('') + '</optgroup>';
+  }
+  return html;
+}
+
 function renderLeavePanel(){
   const container = document.getElementById('leaveBody');
   if(!container) return;
@@ -4142,7 +4159,7 @@ function renderLeavePanel(){
   if(periodInput) periodInput.min = MIN_OPEN_PERIOD;
   if(periodInput && !periodInput.value) periodInput.value = leaveSelectedPeriod;
 
-  const employeeOptions = EMP201.slice().sort((a,b) => a.name.localeCompare(b.name))
+  const employeeOptions = empOptions('', null);
     .map(e => `<option value="${e.id}">${e.name}</option>`).join('');
 
   const days = weekdaysInPeriod(leaveSelectedPeriod);
