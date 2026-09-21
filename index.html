@@ -1382,6 +1382,12 @@ async function authCheck(){
   const session = data ? data.session : null;
   if(session && session.user){
     AUTH_USER = session.user;
+    // only admins belong on the payroll dashboard
+    const { data: adm } = await sb.rpc("is_admin");
+    if(!adm){
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:-apple-system,sans-serif;text-align:center"><div><div style="font-size:15px;font-weight:700;margin-bottom:6px">This area is for payroll administrators</div><div style="font-size:12.5px;color:#6e6e73;margin-bottom:18px">Your leave page is here instead.</div><a href="team.html" style="display:inline-block;background:#007aff;color:#fff;text-decoration:none;font-size:13px;font-weight:700;padding:10px 20px;border-radius:8px">Go to My Leave</a></div></div>';
+      return;
+    }
     showApp();
     await bootApp();
   } else {
