@@ -124,8 +124,19 @@ async function loadMine(){
   var todayStr = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
   document.getElementById("asOf").textContent = "As at " + todayStr;
 
-  const { data: seeds } = await sb.from("leave_balances").select("leave_type,seed_balance,seed_date");
-  const { data: taken } = await sb.from("leave_entries").select("leave_date,leave_type,hours,note").order("leave_date", { ascending:false });
+  // Always scope to the signed-in person, even for admins
+  const { data: myId } = await sb.rpc("my_employee_id");
+  if(!myId){
+    document.getElementById("balances").innerHTML = '<div class="empty">No employee record is linked to this account yet. Please contact HR.</div>';
+    document.getElementById("leaveList").innerHTML = '<div class="empty">—</div>';
+    document.getElementById("leaveCount").textContent = "";
+  }
+  const { data: seeds } = myId
+    ? await sb.from("leave_balances").select("leave_type,seed_balance,seed_date").eq("employee_id", myId)
+    : { data: [] };
+  const { data: taken } = myId
+    ? await sb.from("leave_entries").select("leave_date,leave_type,hours,note").eq("employee_id", myId).order("leave_date", { ascending:false })
+    : { data: [] };
 
   var rows = seeds || [];
   var used = taken || [];
