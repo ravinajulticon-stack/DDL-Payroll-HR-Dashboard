@@ -4160,7 +4160,6 @@ function renderLeavePanel(){
   if(periodInput && !periodInput.value) periodInput.value = leaveSelectedPeriod;
 
   const employeeOptions = empOptions('', null);
-    .map(e => `<option value="${e.id}">${e.name}</option>`).join('');
 
   const days = weekdaysInPeriod(leaveSelectedPeriod);
   const dateSet = new Set(days.map(d => d.date));
