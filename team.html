@@ -112,7 +112,8 @@ function monthsBetween(from, to){
   var a = new Date(from + "T00:00:00"), b = new Date(to);
   var m = (b.getFullYear()-a.getFullYear())*12 + (b.getMonth()-a.getMonth());
   if(b.getDate() < a.getDate()) m -= 1;
-  return Math.max(0, m);
+  // Employee 203 credits the first month on joining, so count inclusively
+  return Math.max(0, m) + 1;
 }
 
 async function signIn(){
