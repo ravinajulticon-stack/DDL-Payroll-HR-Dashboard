@@ -60,7 +60,7 @@ td{ font-size:12.5px; padding:9px 16px; border-bottom:1px solid var(--border); c
 <div id="app" style="display:none">
   <div class="bar">
     <div><span class="bar-title">My Leave</span><span class="bar-sub">Digital Door Locks Pty Limited</span></div>
-    <div><span class="who" id="who"></span><button class="out" onclick="signOut()">Sign out</button></div>
+    <div><a href="index.html" id="adminLink" style="display:none;font-size:10.5px;font-weight:600;color:var(--blue);text-decoration:none;margin-right:12px">Payroll dashboard →</a><span class="who" id="who"></span><button class="out" onclick="signOut()">Sign out</button></div>
   </div>
   <div class="wrap">
     <div class="card">
@@ -116,6 +116,8 @@ async function start(){
   document.getElementById("gate").style.display = "none";
   document.getElementById("app").style.display = "block";
   document.getElementById("who").textContent = data.session.user.email;
+  const { data: adm } = await sb.rpc("is_admin");
+  if(adm) document.getElementById("adminLink").style.display = "inline";
   await loadMine();
 }
 
