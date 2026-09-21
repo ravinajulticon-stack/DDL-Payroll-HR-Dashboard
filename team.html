@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Leave — Digital Door Locks</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{ --bg:#f5f5f7; --surface:#fff; --border:rgba(0,0,0,0.10); --text:#1d1d1f; --text-2:#6e6e73; --text-3:#8e8e93; --blue:#007aff; --green:#34c759; --amber:#ff9500; --radius:12px; }
+*{ box-sizing:border-box; }
+body{ margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+.bar{ background:#fff; border-bottom:1px solid var(--border); padding:12px 20px; display:flex; align-items:center; justify-content:space-between; }
+.bar-title{ font-size:14px; font-weight:700; }
+.bar-sub{ font-size:11.5px; color:var(--text-3); margin-left:8px; font-weight:400; }
+.who{ font-size:11px; color:var(--text-3); margin-right:10px; }
+.out{ font-size:10.5px; font-weight:600; background:#f2f2f7; border:none; border-radius:999px; padding:4px 11px; cursor:pointer; font-family:inherit; color:var(--text-2); }
+.wrap{ max-width:900px; margin:0 auto; padding:18px 20px 40px; }
+.card{ background:var(--surface); border-radius:var(--radius); box-shadow:0 2px 16px rgba(0,0,0,0.08),0 1px 3px rgba(0,0,0,0.06); margin-bottom:14px; overflow:hidden; }
+.card-head{ padding:12px 16px; border-bottom:1px solid var(--border); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.7px; color:var(--text-3); display:flex; justify-content:space-between; }
+.tiles{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; padding:14px 16px; }
+.tile{ border-radius:var(--radius); padding:16px; color:#fff; }
+.tile.annual{ background:linear-gradient(135deg,#0a84ff 0%,#0060df 100%); }
+.tile.personal{ background:linear-gradient(135deg,#34c759 0%,#1e7a35 100%); }
+.tile-lbl{ font-size:9.5px; text-transform:uppercase; letter-spacing:0.6px; opacity:0.85; font-weight:600; }
+.tile-val{ font-size:27px; font-weight:700; margin-top:5px; letter-spacing:-0.5px; }
+.tile-sub{ font-size:10.5px; opacity:0.8; margin-top:4px; }
+table{ width:100%; border-collapse:collapse; }
+th{ background:#f2f2f7; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-3); padding:8px 16px; text-align:left; }
+td{ font-size:12.5px; padding:9px 16px; border-bottom:1px solid var(--border); color:var(--text-2); }
+.pill{ font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; }
+.pill.annual{ background:rgba(0,122,255,0.12); color:#0056b3; }
+.pill.personal{ background:rgba(52,199,89,0.16); color:#1e7a35; }
+.pill.other{ background:rgba(142,142,147,0.16); color:var(--text-2); }
+.empty{ padding:22px 16px; text-align:center; font-size:12px; color:var(--text-3); }
+#gate{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:linear-gradient(160deg,#eef1f6,#e3e8f0); z-index:99; }
+.auth{ width:330px; background:#fff; border-radius:14px; padding:30px 28px; box-shadow:0 10px 40px rgba(0,0,0,0.14); }
+.auth h1{ font-size:15px; margin:0; }
+.auth p{ font-size:11.5px; color:var(--text-3); margin:2px 0 20px; }
+.auth label{ display:block; font-size:9.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-3); margin:12px 0 5px; }
+.auth input{ width:100%; height:36px; border:1px solid var(--border); border-radius:8px; padding:0 11px; font-size:13px; font-family:inherit; }
+.auth button{ width:100%; height:38px; margin-top:20px; background:var(--blue); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; }
+.msg{ font-size:11.5px; color:#c9271d; margin-top:10px; min-height:14px; text-align:center; }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="auth">
+    <h1>My Leave</h1>
+    <p>Digital Door Locks Pty Limited</p>
+    <label>Email</label>
+    <input type="email" id="email" autocomplete="username">
+    <label>Password</label>
+    <input type="password" id="password" autocomplete="current-password" onkeydown="if(event.key==='Enter') signIn()">
+    <button onclick="signIn()">Sign in</button>
+    <div class="msg" id="msg"></div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <div class="bar">
+    <div><span class="bar-title">My Leave</span><span class="bar-sub">Digital Door Locks Pty Limited</span></div>
+    <div><span class="who" id="who"></span><button class="out" onclick="signOut()">Sign out</button></div>
+  </div>
+  <div class="wrap">
+    <div class="card">
+      <div class="card-head"><span>Leave Balance</span><span id="asOf"></span></div>
+      <div class="tiles" id="balances"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span>My Leave History</span><span id="leaveCount"></span></div>
+      <div id="leaveList"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><span>Public Holidays</span><span>Victoria</span></div>
+      <div id="holidayList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://krehcrqqcykynqkqabfb.supabase.co";
+const SUPABASE_KEY = "sb_publishable_9rrHEKoA7o9RAnp4G66m3w_3nhRfeEc";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const ACCRUAL = { "Annual Leave": 13.33, "Personal Leave": 6.66 };
+
+function monthsBetween(from, to){
+  var a = new Date(from + "T00:00:00"), b = new Date(to);
+  var m = (b.getFullYear()-a.getFullYear())*12 + (b.getMonth()-a.getMonth());
+  if(b.getDate() < a.getDate()) m -= 1;
+  return Math.max(0, m);
+}
+
+async function signIn(){
+  var email = document.getElementById("email").value.trim();
+  var pass = document.getElementById("password").value;
+  var msg = document.getElementById("msg");
+  if(!email || !pass){ msg.textContent = "Enter your email and password."; return; }
+  msg.textContent = "Signing in\u2026";
+  const { error } = await sb.auth.signInWithPassword({ email: email, password: pass });
+  if(error){ msg.textContent = error.message; return; }
+  msg.textContent = "";
+  start();
+}
+
+async function signOut(){ await sb.auth.signOut(); location.reload(); }
+
+async function start(){
+  const { data } = await sb.auth.getSession();
+  if(!data || !data.session){
+    document.getElementById("gate").style.display = "flex";
+    document.getElementById("app").style.display = "none";
+    return;
+  }
+  document.getElementById("gate").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  document.getElementById("who").textContent = data.session.user.email;
+  await loadMine();
+}
+
+async function loadMine(){
+  var today = new Date();
+  var todayStr = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
+  document.getElementById("asOf").textContent = "As at " + todayStr;
+
+  const { data: seeds } = await sb.from("leave_balances").select("leave_type,seed_balance,seed_date");
+  const { data: taken } = await sb.from("leave_entries").select("leave_date,leave_type,hours,note").order("leave_date", { ascending:false });
+
+  var rows = seeds || [];
+  var used = taken || [];
+
+  if(!rows.length){
+    document.getElementById("balances").innerHTML = "<div class=\"empty\">No leave record is linked to this account yet. Please contact HR.</div>";
+  } else {
+    document.getElementById("balances").innerHTML = rows.map(function(r){
+      var rate = ACCRUAL[r.leave_type] || 0;
+      var accrued = (parseFloat(r.seed_balance)||0) + monthsBetween(r.seed_date, today) * rate;
+      var spent = used.filter(function(u){ return u.leave_type === r.leave_type; })
+        .reduce(function(a,u){ return a + (parseFloat(u.hours)||0); }, 0);
+      var bal = accrued - spent;
+      var cls = r.leave_type === "Annual Leave" ? "annual" : "personal";
+      return '<div class="tile ' + cls + '">'
+        + '<div class="tile-lbl">' + r.leave_type + '</div>'
+        + '<div class="tile-val">' + bal.toFixed(2) + '</div>'
+        + '<div class="tile-sub">hours available \u00b7 ' + spent.toFixed(2) + ' taken</div></div>';
+    }).join("");
+  }
+
+  document.getElementById("leaveCount").textContent = used.length + " record" + (used.length===1?"":"s");
+  document.getElementById("leaveList").innerHTML = used.length
+    ? '<table><thead><tr><th>Date</th><th>Type</th><th>Hours</th><th>Note</th></tr></thead><tbody>'
+      + used.map(function(u){
+          var cls = u.leave_type === "Annual Leave" ? "annual" : (u.leave_type === "Personal Leave" ? "personal" : "other");
+          return "<tr><td>" + u.leave_date + "</td><td><span class=\"pill " + cls + "\">" + u.leave_type + "</span></td>"
+            + "<td>" + (u.hours||0) + "</td><td>" + (u.note||"") + "</td></tr>";
+        }).join("")
+      + "</tbody></table>"
+    : '<div class="empty">No leave taken.</div>';
+
+  const { data: hols } = await sb.from("vic_holidays").select("date,name").gte("date", todayStr).order("date").limit(8);
+  var h = hols || [];
+  document.getElementById("holidayList").innerHTML = h.length
+    ? '<table><thead><tr><th>Date</th><th>Holiday</th></tr></thead><tbody>'
+      + h.map(function(x){ return "<tr><td>" + x.date + "</td><td>" + x.name + "</td></tr>"; }).join("")
+      + "</tbody></table>"
+    : '<div class="empty">No upcoming holidays.</div>';
+}
+
+start();
+</script>
+</body>
+</html>
