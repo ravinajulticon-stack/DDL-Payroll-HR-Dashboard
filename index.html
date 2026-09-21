@@ -113,6 +113,7 @@ body {
   transition: all 0.15s;
   white-space: nowrap;
 }
+#resetGate{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:linear-gradient(160deg,#eef1f6 0%,#e3e8f0 100%); z-index:10000; }
 #authGate{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:linear-gradient(160deg,#eef1f6 0%,#e3e8f0 100%); z-index:9999; }
 .auth-card{ width:340px; background:#fff; border-radius:14px; padding:30px 28px 26px; box-shadow:0 10px 40px rgba(0,0,0,0.14); }
 .auth-brand{ font-size:15px; font-weight:700; color:var(--text); }
@@ -938,6 +939,19 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
   </div>
 </div>
 
+<div id="resetGate">
+  <div class="auth-card">
+    <div class="auth-brand">Set a new password</div>
+    <div class="auth-sub">Choose a password for your account</div>
+    <label class="auth-label">New password</label>
+    <input type="password" id="newPass1" class="auth-input" autocomplete="new-password">
+    <label class="auth-label">Confirm password</label>
+    <input type="password" id="newPass2" class="auth-input" autocomplete="new-password" onkeydown="if(event.key==='Enter') authSetPassword()">
+    <button class="auth-btn" onclick="authSetPassword()">Save password</button>
+    <div id="resetMsg" class="auth-msg"></div>
+  </div>
+</div>
+
 <div id="appRoot" style="display:none">
 
 <!-- TITLEBAR -->
@@ -1332,7 +1346,38 @@ async function bootApp(){
 /* ---- AUTHENTICATION ---- */
 let AUTH_USER = null;
 
+// A recovery link signs the user in and lands here; let them set a new password.
+async function authSetPassword(){
+  var p1 = document.getElementById('newPass1').value;
+  var p2 = document.getElementById('newPass2').value;
+  var msg = document.getElementById('resetMsg');
+  if(p1.length < 8){ msg.textContent = 'Use at least 8 characters.'; return; }
+  if(p1 !== p2){ msg.textContent = 'Passwords do not match.'; return; }
+  msg.textContent = 'Saving\u2026';
+  const { error } = await sb.auth.updateUser({ password: p1 });
+  if(error){ msg.textContent = error.message; return; }
+  msg.textContent = '';
+  document.getElementById('resetGate').style.display = 'none';
+  const { data } = await sb.auth.getSession();
+  if(data && data.session){ AUTH_USER = data.session.user; showApp(); await bootApp(); }
+}
+
+function showReset(){
+  var r = document.getElementById('resetGate');
+  var g = document.getElementById('authGate');
+  var a = document.getElementById('appRoot');
+  if(r) r.style.display = 'flex';
+  if(g) g.style.display = 'none';
+  if(a) a.style.display = 'none';
+}
 async function authCheck(){
+  // a password recovery link arrives with type=recovery in the URL fragment
+  var frag = (location.hash || '').toLowerCase();
+  if(frag.indexOf('type=recovery') > -1){
+    sb.auth.onAuthStateChange(function(evt){ if(evt === 'PASSWORD_RECOVERY') showReset(); });
+    showReset();
+    return;
+  }
   const { data } = await sb.auth.getSession();
   const session = data ? data.session : null;
   if(session && session.user){
