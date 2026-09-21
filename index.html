@@ -125,6 +125,8 @@ body {
 .auth-btn:hover{ background:#0062cc; }
 .auth-btn:disabled{ opacity:0.6; cursor:default; }
 .auth-msg{ font-size:11.5px; color:#c9271d; margin-top:10px; min-height:14px; text-align:center; }
+.myleave-link{ font-size:10.5px; font-weight:600; color:var(--blue); text-decoration:none; margin-right:12px; }
+.myleave-link:hover{ text-decoration:underline; }
 .auth-who{ font-size:11px; color:var(--text-3); margin-right:8px; }
 .auth-out{ font-size:10.5px; font-weight:600; color:var(--text-2); background:var(--surface-3); border:none; border-radius:999px; padding:3px 10px; cursor:pointer; font-family:inherit; margin-right:8px; }
 .auth-out:hover{ color:#c9271d; }
@@ -964,7 +966,7 @@ input:checked+.pay202-toggle-slider:before{ transform:translateX(16px); }
   <div class="titlebar-center">
     <span class="titlebar-title">Human Resources Information System</span>
     <span class="titlebar-sub">- Digital Door Locks Pty Limited</span>
-    <span class="auth-who" id="authWho"></span><button class="auth-out" onclick="authSignOut()" title="Sign out">Sign out</button>
+    <a href="team.html" class="myleave-link">My Leave</a><span class="auth-who" id="authWho"></span><button class="auth-out" onclick="authSignOut()" title="Sign out">Sign out</button>
     <span class="ph-flag" title="Philippines team"><svg viewBox="0 0 24 16" width="19" height="13" aria-label="Philippine flag"><rect width="24" height="8" fill="#0038a8"/><rect y="8" width="24" height="8" fill="#ce1126"/><path d="M0 0 L12 8 L0 16 Z" fill="#ffffff"/><circle cx="3.6" cy="8" r="2" fill="#fcd116"/><path d="M3.6 4.1l.42 1.3h1.37l-1.1.8.42 1.3-1.11-.8-1.11.8.42-1.3-1.1-.8h1.37z" fill="#fcd116"/><path d="M3.6 11.9l.42-1.3h1.37l-1.1-.8.42-1.3-1.11.8-1.11-.8.42 1.3-1.1.8h1.37z" fill="#fcd116"/><circle cx="1.1" cy="1.2" r="0.62" fill="#fcd116"/><circle cx="1.1" cy="14.8" r="0.62" fill="#fcd116"/><circle cx="9.6" cy="8" r="0.62" fill="#fcd116"/></svg></span>
   </div>
 </div>
