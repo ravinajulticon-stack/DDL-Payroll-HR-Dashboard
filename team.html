@@ -84,6 +84,16 @@ const SUPABASE_KEY = "sb_publishable_9rrHEKoA7o9RAnp4G66m3w_3nhRfeEc";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const ACCRUAL = { "Annual Leave": 13.33, "Personal Leave": 6.66 };
+const HOURS_PER_DAY = 8;
+
+function fmtDay(iso){
+  if(!iso) return "";
+  var d = new Date(iso + "T00:00:00");
+  if(isNaN(d)) return iso;
+  var days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  var mons = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return days[d.getDay()] + " " + d.getDate() + " " + mons[d.getMonth()] + " " + d.getFullYear();
+}
 
 function monthsBetween(from, to){
   var a = new Date(from + "T00:00:00"), b = new Date(to);
@@ -124,7 +134,7 @@ async function start(){
 async function loadMine(){
   var today = new Date();
   var todayStr = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
-  document.getElementById("asOf").textContent = "As at " + todayStr;
+  document.getElementById("asOf").textContent = "As at " + fmtDay(todayStr);
 
   // Always scope to the signed-in person, even for admins
   const { data: myId } = await sb.rpc("my_employee_id");
@@ -156,17 +166,18 @@ async function loadMine(){
       return '<div class="tile ' + cls + '">'
         + '<div class="tile-lbl">' + r.leave_type + '</div>'
         + '<div class="tile-val">' + bal.toFixed(2) + '</div>'
-        + '<div class="tile-sub">hours available \u00b7 ' + spent.toFixed(2) + ' taken</div></div>';
+        + '<div class="tile-sub">hours \u00b7 ' + (bal / HOURS_PER_DAY).toFixed(1) + ' days available</div>'
+        + '<div class="tile-sub">' + spent.toFixed(2) + ' hrs taken so far</div></div>';
     }).join("");
   }
 
   document.getElementById("leaveCount").textContent = used.length + " record" + (used.length===1?"":"s");
   document.getElementById("leaveList").innerHTML = used.length
-    ? '<table><thead><tr><th>Date</th><th>Type</th><th>Hours</th><th>Note</th></tr></thead><tbody>'
+    ? '<table><thead><tr><th>Date</th><th>Type</th><th>Hours</th><th>Days</th><th>Note</th></tr></thead><tbody>'
       + used.map(function(u){
           var cls = u.leave_type === "Annual Leave" ? "annual" : (u.leave_type === "Personal Leave" ? "personal" : "other");
-          return "<tr><td>" + u.leave_date + "</td><td><span class=\"pill " + cls + "\">" + u.leave_type + "</span></td>"
-            + "<td>" + (u.hours||0) + "</td><td>" + (u.note||"") + "</td></tr>";
+          return "<tr><td>" + fmtDay(u.leave_date) + "</td><td><span class=\"pill " + cls + "\">" + u.leave_type + "</span></td>"
+            + "<td>" + (u.hours||0) + "</td><td>" + ((parseFloat(u.hours)||0)/HOURS_PER_DAY).toFixed(2) + "</td><td>" + (u.note||"") + "</td></tr>";
         }).join("")
       + "</tbody></table>"
     : '<div class="empty">No leave taken.</div>';
@@ -175,7 +186,7 @@ async function loadMine(){
   var h = hols || [];
   document.getElementById("holidayList").innerHTML = h.length
     ? '<table><thead><tr><th>Date</th><th>Holiday</th></tr></thead><tbody>'
-      + h.map(function(x){ return "<tr><td>" + x.date + "</td><td>" + x.name + "</td></tr>"; }).join("")
+      + h.map(function(x){ return "<tr><td>" + fmtDay(x.date) + "</td><td>" + x.name + "</td></tr>"; }).join("")
       + "</tbody></table>"
     : '<div class="empty">No upcoming holidays.</div>';
 }
