@@ -127,57 +127,83 @@ async function signOut(){ await sb.auth.signOut(); location.reload(); }
 async function start(){
   const { data } = await sb.auth.getSession();
   if(!data || !data.session){
-    document.getElementById("gate").style.display = "flex";
-    document.getElementById("app").style.display = "none";
+    document.getElementById('gate').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
     return;
   }
-  document.getElementById("gate").style.display = "none";
-  document.getElementById("app").style.display = "block";
-  document.getElementById("who").textContent = data.session.user.email;
-  const { data: adm } = await sb.rpc("is_admin");
-  if(adm) document.getElementById("adminLink").style.display = "inline";
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('who').textContent = data.session.user.email;
+  const { data: adm } = await sb.rpc('is_admin');
+  if(adm) document.getElementById('adminLink').style.display = 'inline';
   await loadMine();
+}
+
+var MONS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var DOWS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function tile(dateStr, cls, title, sub){
+  var d = new Date(dateStr + 'T00:00:00');
+  return '<div class="vic-tile ' + cls + '">'
+    + '<div class="vic-tile-day">' + d.getDate() + '</div>'
+    + '<div class="vic-tile-mon">' + MONS[d.getMonth()] + ' \u00b7 ' + DOWS[d.getDay()] + '</div>'
+    + '<div class="vic-tile-name">' + title + (sub ? '<br>' + sub : '') + '</div>'
+    + '</div>';
 }
 
 async function loadMine(){
   var today = new Date();
-  var todayStr = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
-  document.getElementById("asOf").textContent = "As at " + fmtDay(todayStr);
+  var todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+  document.getElementById('asOf').textContent = 'As at ' + fmtDay(todayStr);
 
-  // Always scope to the signed-in person, even for admins
-  const { data: myId } = await sb.rpc("my_employee_id");
+  const { data: myId } = await sb.rpc('my_employee_id');
   if(!myId){
-    document.getElementById("balances").innerHTML = '<div class="empty">No employee record is linked to this account yet. Please contact HR.</div>';
-      document.getElementById("leaveList").innerHTML = used.length
-    ? '<div class="vic-tile-grid">'
-      + used.map(function(u){
-          var d = new Date(u.leave_date + "T00:00:00");
-          var mons = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-          var days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-          var cls = u.leave_type === "Annual Leave" ? "lv-annual" : (u.leave_type === "Personal Leave" ? "lv-personal" : "lv-unpaid");
-          var hrs = parseFloat(u.hours) || 0;
-          return '<div class="vic-tile ' + cls + '">'
-            + '<div class="vic-tile-day">' + d.getDate() + '</div>'
-            + '<div class="vic-tile-mon">' + mons[d.getMonth()] + " \u00b7 " + days[d.getDay()] + '</div>'
-            + '<div class="vic-tile-name">' + u.leave_type.replace(" Leave","") + '<br>' + hrs + 'h \u00b7 ' + (hrs/HOURS_PER_DAY).toFixed(2) + ' d</div></div>';
-        }).join("")
-      + "</div>"
-    : '<div class="empty">No leave taken.</div>';
+    document.getElementById('balances').innerHTML = '<div class="empty">No employee record is linked to this account yet. Please contact HR.</div>';
+    document.getElementById('leaveList').innerHTML = '<div class="empty">\u2014</div>';
+    document.getElementById('leaveCount').textContent = '';
+  }
 
-  const { data: hols } = await sb.from("vic_holidays").select("date,name").gte("date", todayStr).order("date").limit(8);
-  var h = hols || [];
-    document.getElementById("holidayList").innerHTML = h.length
-    ? '<div class="vic-tile-grid">'
-      + h.map(function(x){
-          var d = new Date(x.date + "T00:00:00");
-          var mons = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-          var days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-          return '<div class="vic-tile">'
-            + '<div class="vic-tile-day">' + d.getDate() + '</div>'
-            + '<div class="vic-tile-mon">' + mons[d.getMonth()] + " \u00b7 " + days[d.getDay()] + '</div>'
-            + '<div class="vic-tile-name">' + x.name + '</div></div>';
-        }).join("")
-      + "</div>"
+  const seedRes = myId
+    ? await sb.from('leave_balances').select('leave_type,seed_balance,seed_date').eq('employee_id', myId)
+    : { data: [] };
+  const takenRes = myId
+    ? await sb.from('leave_entries').select('leave_date,leave_type,hours,note').eq('employee_id', myId).order('leave_date', { ascending:false })
+    : { data: [] };
+  var rows = seedRes.data || [];
+  var used = takenRes.data || [];
+
+  if(rows.length){
+    document.getElementById('balances').innerHTML = rows.map(function(r){
+      var rate = ACCRUAL[r.leave_type] || 0;
+      var accrued = (parseFloat(r.seed_balance)||0) + monthsBetween(r.seed_date, today) * rate;
+      var spent = used.filter(function(u){ return u.leave_type === r.leave_type; })
+        .reduce(function(a,u){ return a + (parseFloat(u.hours)||0); }, 0);
+      var bal = accrued - spent;
+      var cls = r.leave_type === 'Annual Leave' ? 'annual' : 'personal';
+      return '<div class="tile ' + cls + '">'
+        + '<div class="tile-lbl">' + r.leave_type + '</div>'
+        + '<div class="tile-val">' + bal.toFixed(2) + '</div>'
+        + '<div class="tile-sub">hours \u00b7 ' + (bal/HOURS_PER_DAY).toFixed(1) + ' days available</div>'
+        + '<div class="tile-sub">' + spent.toFixed(2) + ' hrs taken so far</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  if(myId){
+    document.getElementById('leaveCount').textContent = used.length + ' record' + (used.length === 1 ? '' : 's');
+    document.getElementById('leaveList').innerHTML = used.length
+      ? '<div class="vic-tile-grid">' + used.map(function(u){
+          var cls = u.leave_type === 'Annual Leave' ? 'lv-annual' : (u.leave_type === 'Personal Leave' ? 'lv-personal' : 'lv-unpaid');
+          var hrs = parseFloat(u.hours) || 0;
+          return tile(u.leave_date, cls, u.leave_type.replace(' Leave',''), hrs + 'h \u00b7 ' + (hrs/HOURS_PER_DAY).toFixed(2) + ' d');
+        }).join('') + '</div>'
+      : '<div class="empty">No leave taken.</div>';
+  }
+
+  const holRes = await sb.from('vic_holidays').select('date,name').gte('date', todayStr).order('date').limit(12);
+  var h = holRes.data || [];
+  document.getElementById('holidayList').innerHTML = h.length
+    ? '<div class="vic-tile-grid">' + h.map(function(x){ return tile(x.date, '', x.name, ''); }).join('') + '</div>'
     : '<div class="empty">No upcoming holidays.</div>';
 }
 
