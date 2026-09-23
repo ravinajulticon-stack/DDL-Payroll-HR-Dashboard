@@ -24,6 +24,29 @@ body{ margin:0; background:var(--bg); color:var(--text); font-family:-apple-syst
 .tile-lbl{ font-size:9.5px; text-transform:uppercase; letter-spacing:0.6px; opacity:0.85; font-weight:600; }
 .tile-val{ font-size:27px; font-weight:700; margin-top:5px; letter-spacing:-0.5px; }
 .tile-sub{ font-size:10.5px; opacity:0.8; margin-top:4px; }
+.reqform{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; padding:14px 16px; background:linear-gradient(180deg,#f8f9fc,#f3f5f9); border-top:1px solid var(--border); }
+.reqform label{ display:block; font-size:9.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-3); margin-bottom:5px; }
+.fld{ height:34px; border:1px solid var(--border); border-radius:8px; padding:0 10px; font-size:12.5px; font-family:inherit; background:#fff; color:var(--text); }
+.fld:focus{ outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(0,122,255,0.12); }
+.btn{ height:34px; padding:0 18px; background:var(--blue); color:#fff; border:none; border-radius:8px; font-size:12.5px; font-weight:700; font-family:inherit; cursor:pointer; }
+.btn:hover{ background:#0062cc; }
+.btn.ghost{ background:var(--surface); color:var(--text-2); border:1px solid var(--border); }
+.btn.ok{ background:var(--green); }
+.btn.no{ background:#ff3b30; }
+.btn.sm{ height:28px; padding:0 12px; font-size:11.5px; }
+.reqmsg{ font-size:12px; padding:0 16px 12px; min-height:16px; color:var(--text-2); }
+.reqmsg.err{ color:#c9271d; }
+.reqmsg.ok{ color:#1e7a35; }
+.rq{ display:flex; align-items:center; gap:12px; padding:11px 16px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.rq:last-child{ border-bottom:none; }
+.rq-main{ flex:1 1 260px; min-width:0; }
+.rq-when{ font-size:12.5px; font-weight:600; color:var(--text); }
+.rq-meta{ font-size:11px; color:var(--text-3); margin-top:2px; }
+.st{ font-size:10px; font-weight:700; padding:3px 10px; border-radius:999px; white-space:nowrap; }
+.st.pending{ background:rgba(255,149,0,0.16); color:#a35b00; }
+.st.approved{ background:rgba(52,199,89,0.16); color:#1e7a35; }
+.st.declined{ background:rgba(255,59,48,0.12); color:#c9271d; }
+.st.cancelled{ background:rgba(142,142,147,0.18); color:var(--text-2); }
 .vic-tile-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:10px; padding:14px 16px; }
 .vic-tile{ background:linear-gradient(135deg,#5ac8fa 0%,#2f9fd4 100%); border-radius:12px; padding:12px 10px; color:#fff; text-align:center; box-shadow:0 2px 10px rgba(47,159,212,0.25); }
 .vic-tile.lv-away{ background:linear-gradient(135deg,#af52de 0%,#7d3aa5 100%); box-shadow:0 2px 10px rgba(125,58,165,0.25); }
@@ -75,6 +98,31 @@ td{ font-size:12.5px; padding:9px 16px; border-bottom:1px solid var(--border); c
     <div class="card">
       <div class="card-head"><span>Leave Balance</span><span id="asOf"></span></div>
       <div class="tiles" id="balances"></div>
+    </div>
+    <div class="card" id="approvalsCard" style="display:none">
+      <div class="card-head"><span>Leave Requests</span><span id="apprCount"></span></div>
+      <div id="approvalsList"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span>Request Leave</span><span>Weekends and holidays are skipped</span></div>
+      <div class="reqform">
+        <div><label>Type</label><select id="reqType" class="fld">
+          <option value="">Choose…</option>
+          <option>Annual Leave</option><option>Personal Leave</option><option>Unpaid Leave</option>
+        </select></div>
+        <div><label>From</label><input type="date" id="reqFrom" class="fld"></div>
+        <div><label>To</label><input type="date" id="reqTo" class="fld"></div>
+        <div><label>Hours/day</label><input type="number" step="0.5" id="reqHours" class="fld" value="8" style="width:90px"></div>
+        <div style="flex:1 1 200px"><label>Reason</label><input type="text" id="reqReason" class="fld" placeholder="Optional"></div>
+        <div><label>&nbsp;</label><button class="btn" onclick="submitRequest()">Submit</button></div>
+      </div>
+      <div id="reqMsg" class="reqmsg"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span>My Requests</span><span id="myReqCount"></span></div>
+      <div id="myRequests"></div>
     </div>
     <div class="card">
       <div class="card-head"><span>My Leave History</span><span id="leaveCount"></span></div>
@@ -141,6 +189,7 @@ async function start(){
   document.getElementById('app').style.display = 'block';
   document.getElementById('who').textContent = data.session.user.email;
   const { data: adm } = await sb.rpc('is_admin');
+  IS_ADMIN = !!adm;
   if(adm) document.getElementById('adminLink').style.display = 'inline';
   await loadMine();
 }
@@ -157,12 +206,158 @@ function tile(dateStr, cls, title, sub){
     + '</div>';
 }
 
+
+/* ---- LEAVE REQUESTS ---- */
+let MY_ID = null;
+let IS_ADMIN = false;
+let HOLIDAY_SET = new Set();
+
+function workingDays(from, to){
+  var out = [];
+  var d = new Date(from + 'T00:00:00');
+  var end = new Date(to + 'T00:00:00');
+  while(d <= end){
+    var iso = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    var dow = d.getDay();
+    if(dow !== 0 && dow !== 6 && !HOLIDAY_SET.has(iso)) out.push(iso);
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
+
+async function submitRequest(){
+  var msg = document.getElementById('reqMsg');
+  msg.className = 'reqmsg';
+  var type = document.getElementById('reqType').value;
+  var from = document.getElementById('reqFrom').value;
+  var to = document.getElementById('reqTo').value || from;
+  var hrs = parseFloat(document.getElementById('reqHours').value);
+  var why = document.getElementById('reqReason').value.trim();
+  if(!MY_ID){ msg.className = 'reqmsg err'; msg.textContent = 'No employee record is linked to this account.'; return; }
+  if(!type){ msg.className = 'reqmsg err'; msg.textContent = 'Choose a leave type.'; return; }
+  if(!from){ msg.className = 'reqmsg err'; msg.textContent = 'Choose a start date.'; return; }
+  if(to < from){ msg.className = 'reqmsg err'; msg.textContent = 'The end date is before the start date.'; return; }
+  if(!(hrs > 0)){ msg.className = 'reqmsg err'; msg.textContent = 'Hours per day must be more than zero.'; return; }
+  var days = workingDays(from, to);
+  if(!days.length){ msg.className = 'reqmsg err'; msg.textContent = 'That range has no working days in it.'; return; }
+
+  msg.textContent = 'Submitting\u2026';
+  const { error } = await sb.from('leave_requests').insert({
+    employee_id: MY_ID, leave_type: type, start_date: from, end_date: to,
+    hours_per_day: hrs, reason: why || null, status: 'Pending'
+  });
+  if(error){ msg.className = 'reqmsg err'; msg.textContent = error.message; return; }
+  msg.className = 'reqmsg ok';
+  msg.textContent = 'Submitted \u2014 ' + days.length + ' working day' + (days.length===1?'':'s') + ', ' + (days.length*hrs).toFixed(2) + ' hours. Awaiting approval.';
+  document.getElementById('reqType').value = '';
+  document.getElementById('reqFrom').value = '';
+  document.getElementById('reqTo').value = '';
+  document.getElementById('reqReason').value = '';
+  await loadRequests();
+}
+
+async function withdrawRequest(id){
+  const { error } = await sb.from('leave_requests').update({ status: 'Cancelled' }).eq('id', id);
+  if(error){ alert(error.message); return; }
+  await loadRequests();
+}
+
+function rangeLabel(a, b){
+  return a === b ? fmtDay(a) : fmtDay(a) + '  \u2192  ' + fmtDay(b);
+}
+
+function reqSummary(r){
+  var days = workingDays(r.start_date, r.end_date);
+  var hrs = days.length * parseFloat(r.hours_per_day || 0);
+  return days.length + ' day' + (days.length===1?'':'s') + ' \u00b7 ' + hrs.toFixed(2) + ' hrs \u00b7 ' + r.leave_type;
+}
+
+async function loadRequests(){
+  // my own requests
+  if(MY_ID){
+    const mine = await sb.from('leave_requests').select('*').eq('employee_id', MY_ID)
+      .order('created_at', { ascending:false });
+    var rows = mine.data || [];
+    document.getElementById('myReqCount').textContent = rows.length + ' request' + (rows.length===1?'':'s');
+    document.getElementById('myRequests').innerHTML = rows.length
+      ? rows.map(function(r){
+          var cls = r.status.toLowerCase();
+          var canWithdraw = r.status === 'Pending';
+          return '<div class="rq"><div class="rq-main">'
+            + '<div class="rq-when">' + rangeLabel(r.start_date, r.end_date) + '</div>'
+            + '<div class="rq-meta">' + reqSummary(r) + (r.reason ? ' \u00b7 ' + r.reason : '')
+            + (r.decision_note ? ' \u00b7 <i>' + r.decision_note + '</i>' : '') + '</div></div>'
+            + '<span class="st ' + cls + '">' + r.status + '</span>'
+            + (canWithdraw ? '<button class="btn ghost sm" onclick="withdrawRequest(\'' + r.id + '\')">Withdraw</button>' : '')
+            + '</div>';
+        }).join('')
+      : '<div class="empty">No requests yet.</div>';
+  }
+
+  if(!IS_ADMIN) return;
+
+  // everyone's requests, pending first
+  const all = await sb.from('leave_requests').select('*').order('created_at', { ascending:false });
+  var list = all.data || [];
+  var names = {};
+  const emps = await sb.from('employees_201').select('id,name');
+  (emps.data || []).forEach(function(e){ names[e.id] = e.name; });
+  var pending = list.filter(function(r){ return r.status === 'Pending'; });
+  var rest = list.filter(function(r){ return r.status !== 'Pending'; }).slice(0, 12);
+  var ordered = pending.concat(rest);
+
+  document.getElementById('approvalsCard').style.display = 'block';
+  document.getElementById('apprCount').textContent = pending.length + ' awaiting approval';
+  document.getElementById('approvalsList').innerHTML = ordered.length
+    ? ordered.map(function(r){
+        var cls = r.status.toLowerCase();
+        var acts = '';
+        if(r.status === 'Pending'){
+          acts = '<button class="btn ok sm" onclick="decide(\'' + r.id + '\',true)">Approve</button>'
+               + '<button class="btn no sm" onclick="decide(\'' + r.id + '\',false)">Decline</button>';
+        } else if(r.status === 'Approved' && r.start_date > todayISO()){
+          acts = '<button class="btn ghost sm" onclick="cancelApproved(\'' + r.id + '\')">Cancel</button>';
+        }
+        return '<div class="rq"><div class="rq-main">'
+          + '<div class="rq-when">' + (names[r.employee_id] || '?') + ' \u00b7 ' + rangeLabel(r.start_date, r.end_date) + '</div>'
+          + '<div class="rq-meta">' + reqSummary(r) + (r.reason ? ' \u00b7 ' + r.reason : '') + '</div></div>'
+          + '<span class="st ' + cls + '">' + r.status + '</span>' + acts + '</div>';
+      }).join('')
+    : '<div class="empty">No requests.</div>';
+}
+
+function todayISO(){
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+async function decide(id, approve){
+  var note = prompt(approve ? 'Note (optional)' : 'Reason for declining (optional)') || null;
+  const { data, error } = approve
+    ? await sb.rpc('approve_leave_request', { req_id: id, note: note })
+    : await sb.rpc('decline_leave_request', { req_id: id, note: note });
+  if(error){ alert(error.message); return; }
+  if(approve) alert('Approved \u2014 ' + data + ' leave day' + (data===1?'':'s') + ' recorded.');
+  await loadRequests();
+  await loadMine();
+}
+
+async function cancelApproved(id){
+  if(!confirm('Cancel this approved leave? The days will be removed and the balance restored.')) return;
+  var note = prompt('Reason (optional)') || null;
+  const { data, error } = await sb.rpc('cancel_leave_request', { req_id: id, note: note });
+  if(error){ alert(error.message); return; }
+  alert('Cancelled \u2014 ' + data + ' leave day' + (data===1?'':'s') + ' removed.');
+  await loadRequests();
+  await loadMine();
+}
 async function loadMine(){
   var today = new Date();
   var todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
   document.getElementById('asOf').textContent = 'As at ' + fmtDay(todayStr);
 
   const { data: myId } = await sb.rpc('my_employee_id');
+  MY_ID = myId || null;
   if(!myId){
     document.getElementById('balances').innerHTML = '<div class="empty">No employee record is linked to this account yet. Please contact HR.</div>';
     document.getElementById('leaveList').innerHTML = '<div class="empty">\u2014</div>';
@@ -227,11 +422,14 @@ async function loadMine(){
         return tile(d, 'lv-away', byDate[d].join('<br>'), '');
       }).join('') + '</div>'
     : '<div class="empty">Nobody has planned leave in the next three months.</div>';
-  const holRes = await sb.from('vic_holidays').select('date,name').gte('date', todayStr).order('date').limit(12);
-  var h = holRes.data || [];
+  const allHol = await sb.from('vic_holidays').select('date,name').order('date');
+  HOLIDAY_SET = new Set((allHol.data || []).map(function(x){ return x.date; }));
+  var h = (allHol.data || []).filter(function(x){ return x.date >= todayStr; }).slice(0, 12);
   document.getElementById('holidayList').innerHTML = h.length
     ? '<div class="vic-tile-grid">' + h.map(function(x){ return tile(x.date, '', x.name, ''); }).join('') + '</div>'
     : '<div class="empty">No upcoming holidays.</div>';
+
+  await loadRequests();
 }
 
 start();
