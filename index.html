@@ -560,6 +560,11 @@ body {
 .ts-grid-table tr.ts-row-done td{ background:rgba(52,199,89,0.07); }
 .ts-grid-table tr.ts-row-done td:first-child{ box-shadow:inset 3px 0 0 var(--green); font-weight:600; }
 .ts-grid-table tr.ts-row-done:hover td{ background:rgba(52,199,89,0.13); }
+/* Public holiday column: soft blue glow down the whole day (matches the yearly view's holiday colour) */
+.ts-grid-table th.ts-holiday{ background:rgba(90,200,250,0.28); box-shadow:inset 0 -3px 0 #2f9fd4; }
+.ts-grid-table td.ts-holiday, .ts-grid-table tr.ts-row-done td.ts-holiday, .ts-grid-table tr.ts-row-done:hover td.ts-holiday{ background:rgba(90,200,250,0.14); box-shadow:inset 1px 0 0 rgba(47,159,212,0.35), inset -1px 0 0 rgba(47,159,212,0.35); }
+.ts-grid-table td.ts-holiday input{ border-color:rgba(47,159,212,0.45); background:#f4fbff; }
+.ts-hol-tag{ display:block; margin-top:1px; font-size:7.5px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; color:#1f86b8; }
 .rec-table tr.emp-row-inactive td{ background:rgba(142,142,147,0.10); color:var(--text-2); }
 .rec-table tr.emp-row-inactive td:first-child{ box-shadow:inset 3px 0 0 #8e8e93; color:var(--text-2); font-weight:600; }
 .rec-table tr.emp-row-inactive input, .rec-table tr.emp-row-inactive select{ color:var(--text-2); }
@@ -1289,7 +1294,7 @@ function switchView(view, btn){
   } else if(view === 'loans'){
     loadLoanPaidPeriods().then(renderLoansPanel);
   }
-  if((view === 'leave' || view === 'pay202') && !vicHolidaysLoaded){
+  if((view === 'leave' || view === 'pay202' || view === 'timesheet') && !vicHolidaysLoaded){
     vicHolidaysLoaded = true;
     loadVicHolidays();
   }
@@ -2046,7 +2051,14 @@ function renderTimesheetGrid(){
     return;
   }
 
-  const headerCells = days.map(d => `<th><span class="ts-grid-day-name">${d.dayName}</span><span class="ts-grid-day-num">${d.monthShort} ${d.dayNum}</span></th>`).join('');
+  const holidayName = {};
+  (typeof VIC_HOLIDAYS !== 'undefined' ? VIC_HOLIDAYS : []).forEach(h => { holidayName[h.date] = h.name; });
+  const headerCells = days.map(d => {
+    const hol = holidayName[d.date];
+    return hol
+      ? `<th class="ts-holiday" title="Public Holiday \u2014 ${String(hol).replace(/"/g,'&quot;')}"><span class="ts-grid-day-name">${d.dayName}</span><span class="ts-grid-day-num">${d.monthShort} ${d.dayNum}</span><span class="ts-hol-tag">Holiday</span></th>`
+      : `<th><span class="ts-grid-day-name">${d.dayName}</span><span class="ts-grid-day-num">${d.monthShort} ${d.dayNum}</span></th>`;
+  }).join('');
 
   const bodyRows = employees.map(emp => {
     let totalHours = 0, totalOt = 0;
@@ -2064,7 +2076,8 @@ function renderTimesheetGrid(){
         const abbrev = leave.leave_type.split(' ').map(w => w[0]).join('').toUpperCase();
         return `<div class="ts-leave-badge ${info.paid ? 'ts-leave-paid' : 'ts-leave-unpaid'}" title="${leave.leave_type} \u2014 ${fmtHrs(parseFloat(leave.hours)||0)}h${leave.note ? ': ' + leave.note.replace(/"/g,'&quot;') : ''}">${abbrev} ${fmtHrs(parseFloat(leave.hours)||0)}h</div>`;
       })() : '';
-      return `<td><input type="number" step="0.5" min="0" placeholder="\u2014" value="${val}" onchange="updateTimesheetHours('${emp.id}','${d.date}',this.value)">${badge}</td>`;
+      const holCls = holidayName[d.date] ? ' class="ts-holiday"' : '';
+      return `<td${holCls}><input type="number" step="0.5" min="0" placeholder="\u2014" value="${val}" onchange="updateTimesheetHours('${emp.id}','${d.date}',this.value)">${badge}</td>`;
     }).join('');
     // A row counts as complete when every working day is accounted for:
     // hours entered, on leave, a public holiday, or outside their employment dates.
@@ -2308,6 +2321,7 @@ async function loadVicHolidays(){
   const { data, error } = await sb.from('vic_holidays').select('date,name').order('date');
   if(!error && data) VIC_HOLIDAYS = data;
   renderVicHolidaysPanel();
+  if(document.getElementById('timesheetView') && document.getElementById('timesheetView').style.display !== 'none') renderTimesheetGrid();
 }
 
 async function addVicHoliday(){
