@@ -332,7 +332,8 @@ function todayISO(){
 }
 
 async function decide(id, approve){
-  var note = prompt(approve ? 'Note (optional)' : 'Reason for declining (optional)') || null;
+  // only ask for a note when declining — approvals rarely need one
+  var note = approve ? null : (prompt('Reason for declining (optional)') || null);
   const { data, error } = approve
     ? await sb.rpc('approve_leave_request', { req_id: id, note: note })
     : await sb.rpc('decline_leave_request', { req_id: id, note: note });
