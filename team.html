@@ -286,6 +286,7 @@ async function loadRequests(){
           return '<div class="rq"><div class="rq-main">'
             + '<div class="rq-when">' + rangeLabel(r.start_date, r.end_date) + '</div>'
             + '<div class="rq-meta">' + reqSummary(r) + (r.reason ? ' \u00b7 ' + r.reason : '')
+            + (r.previous_dates ? ' \u00b7 <i>moved from ' + r.previous_dates + '</i>' : '')
             + (r.decision_note ? ' \u00b7 <i>' + r.decision_note + '</i>' : '') + '</div></div>'
             + '<span class="st ' + cls + '">' + r.status + '</span>'
             + (canWithdraw ? '<button class="btn ghost sm" onclick="withdrawRequest(\'' + r.id + '\')">Withdraw</button>' : '')
@@ -316,7 +317,8 @@ async function loadRequests(){
           acts = '<button class="btn ok sm" onclick="decide(\'' + r.id + '\',true)">Approve</button>'
                + '<button class="btn no sm" onclick="decide(\'' + r.id + '\',false)">Decline</button>';
         } else if(r.status === 'Approved' && r.start_date > todayISO()){
-          acts = '<button class="btn ghost sm" onclick="cancelApproved(\'' + r.id + '\')">Cancel</button>';
+          acts = '<button class="btn ghost sm" onclick="moveApproved(\'' + r.id + '\')">Move</button>'
+               + '<button class="btn ghost sm" onclick="cancelApproved(\'' + r.id + '\')">Cancel</button>';
         }
         return '<div class="rq"><div class="rq-main">'
           + '<div class="rq-when">' + (names[r.employee_id] || '?') + ' \u00b7 ' + rangeLabel(r.start_date, r.end_date) + '</div>'
@@ -343,6 +345,16 @@ async function decide(id, approve){
   await loadMine();
 }
 
+async function moveApproved(id){
+  var d = prompt('New start date (YYYY-MM-DD). The same number of working days will be used.');
+  if(!d) return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert('Please use the format YYYY-MM-DD.'); return; }
+  const { data, error } = await sb.rpc('move_leave_request', { req_id: id, new_start: d });
+  if(error){ alert(error.message); return; }
+  alert(data);
+  await loadRequests();
+  await loadMine();
+}
 async function cancelApproved(id){
   if(!confirm('Cancel this approved leave? The days will be removed and the balance restored.')) return;
   var note = prompt('Reason (optional)') || null;
